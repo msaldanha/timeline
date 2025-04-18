@@ -6,11 +6,10 @@ package timeline
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	address "github.com/msaldanha/setinstone/address"
 	graph "github.com/msaldanha/setinstone/graph"
+	reflect "reflect"
 )
 
 // MockGraph is a mock of Graph interface
@@ -214,7 +213,7 @@ func (m *MockTimeline) EXPECT() *MockTimelineMockRecorder {
 }
 
 // AppendPost mocks base method
-func (m *MockTimeline) AppendPost(ctx context.Context, post PostItem, keyRoot, connector string) (string, error) {
+func (m *MockTimeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendPost", ctx, post, keyRoot, connector)
 	ret0, _ := ret[0].(string)
@@ -229,7 +228,7 @@ func (mr *MockTimelineMockRecorder) AppendPost(ctx, post, keyRoot, connector int
 }
 
 // AppendReference mocks base method
-func (m *MockTimeline) AppendReference(ctx context.Context, ref ReferenceItem, keyRoot, connector string) (string, error) {
+func (m *MockTimeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendReference", ctx, ref, keyRoot, connector)
 	ret0, _ := ret[0].(string)

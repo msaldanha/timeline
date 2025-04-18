@@ -63,7 +63,7 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 }
 
 // AppendPost adds a post to the timeline and broadcasts post add event to any subscriber
-func (t *timeline) AppendPost(ctx context.Context, post PostItem, keyRoot, connector string) (string, error) {
+func (t *timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -83,7 +83,7 @@ func (t *timeline) AppendPost(ctx context.Context, post PostItem, keyRoot, conne
 
 // AppendReference adds a reference to a post (from other timeline) to the timeline and broadcasts reference
 // added event to any subscriber. It also sends referenced event to the target timeline.
-func (t *timeline) AppendReference(ctx context.Context, ref ReferenceItem, keyRoot, connector string) (string, error) {
+func (t *timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -105,11 +105,9 @@ func (t *timeline) AppendReference(ctx context.Context, ref ReferenceItem, keyRo
 		return "", ErrCannotAddReference
 	}
 
-	mi := ReferenceItem{
-		Reference: Reference{
-			Connector: ref.Connector,
-			Target:    ref.Target,
-		},
+	mi := Reference{
+		Connector: ref.Connector,
+		Target:    ref.Target,
 		Base: Base{
 			Type: TypeReference,
 		},
@@ -169,11 +167,9 @@ func (t *timeline) AddReceivedReference(ctx context.Context, refKey string) (str
 		return "", ErrCannotAddReference
 	}
 
-	li := ReferenceItem{
-		Reference: Reference{
-			Target:    refKey,
-			Connector: receivedRef.Connector,
-		},
+	li := Reference{
+		Target:    refKey,
+		Connector: receivedRef.Connector,
 		Base: Base{
 			Type: TypeReference,
 		},
@@ -206,7 +202,7 @@ func (t *timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 func (t *timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
-	items := []Item{}
+	var items []Item
 	for v, er := it.Last(ctx); er == nil && v != nil && (count == 0 || i < count); v, er = it.Prev(ctx) {
 		item, er := NewItemFromGraphNode(*v)
 		if er != nil {

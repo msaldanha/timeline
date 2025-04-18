@@ -32,12 +32,12 @@ func (w *Watcher) OnPostAdded(callback func(post Post)) {
 			return
 		}
 		if v.Post != nil {
-			callback(v.Post.Post)
+			callback(*v.Post)
 		}
 
 	})
 }
 
-func (w *Watcher) GetTimeline() *timeline {
+func (w *Watcher) GetTimeline() Timeline {
 	return w.tl
 }

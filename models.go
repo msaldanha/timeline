@@ -30,31 +30,22 @@ type PostPart struct {
 }
 
 type Post struct {
+	Base
 	Part
 	Links       []PostPart `json:"links,omitempty"`
 	Attachments []PostPart `json:"attachments,omitempty"`
 }
 
-type PostItem struct {
-	Base
-	Post
-}
-
 type Reference struct {
+	Base
 	Connector string `json:"connector,omitempty"`
 	Target    string `json:"target,omitempty"`
-	Post
-}
-
-type ReferenceItem struct {
-	Base
-	Reference
 }
 
 type Item struct {
 	graph.Node
-	Post      *PostItem      `json:"post,omitempty"`
-	Reference *ReferenceItem `json:"reference,omitempty"`
+	Post      *Post      `json:"post,omitempty"`
+	Reference *Reference `json:"reference,omitempty"`
 }
 
 func NewItemFromGraphNode(v graph.Node) (Item, error) {
@@ -70,11 +61,11 @@ func NewItemFromGraphNode(v graph.Node) (Item, error) {
 
 	switch base.Type {
 	case TypeReference:
-		ri := ReferenceItem{}
+		ri := Reference{}
 		er = json.Unmarshal(v.Data, &ri)
 		item.Reference = &ri
 	case TypePost:
-		p := PostItem{}
+		p := Post{}
 		er = json.Unmarshal(v.Data, &p)
 		item.Post = &p
 	default:
