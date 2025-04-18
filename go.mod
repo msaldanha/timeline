@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/golang/mock v1.6.0
 	github.com/ipfs/kubo v0.34.1
-	github.com/msaldanha/setinstone v0.0.0-20240624193317-34ea259f6ac8
+	github.com/msaldanha/setinstone v0.0.0-20250418162318-39e1b0a9c9fe
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
 	go.etcd.io/bbolt v1.4.0
@@ -135,7 +135,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/onsi/ginkgo/v2 v2.23.4 // indirect
-	github.com/opencontainers/runtime-spec v1.2.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
