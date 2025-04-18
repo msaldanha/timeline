@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/golang/mock v1.6.0
 	github.com/ipfs/kubo v0.34.1
-	github.com/msaldanha/setinstone v0.0.0-20250418162318-39e1b0a9c9fe
+	github.com/msaldanha/setinstone v0.0.0-20250418180422-082ebe79942f
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
 	go.etcd.io/bbolt v1.4.0

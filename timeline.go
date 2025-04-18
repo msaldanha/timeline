@@ -20,7 +20,7 @@ type timeline struct {
 	evmf      event.ManagerFactory
 	ns        string
 	addr      *address.Address
-	evmsCache cache.Cache
+	evmsCache cache.Cache[event.Manager]
 	logger    *zap.Logger
 }
 
@@ -45,7 +45,7 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 		return nil, er
 	}
 
-	evmsCache := cache.NewMemoryCache(0)
+	evmsCache := cache.NewMemoryCache[event.Manager](0)
 
 	tl := &timeline{
 		gr:        gr,
@@ -270,15 +270,14 @@ func (t *timeline) sendEventToTimeline(addr, eventType, eventValue string) {
 }
 
 func (t *timeline) getEvmForTimeline(addr string) (event.Manager, error) {
-	v, found, er := t.evmsCache.Get(addr)
+	evm, found, er := t.evmsCache.Get(addr)
 	if er != nil {
 		return nil, er
 	}
 	if found {
-		evm := v.(event.Manager)
 		return evm, nil
 	}
-	evm, er := t.evmf.Build(t.addr, &address.Address{Address: addr}, t.logger)
+	evm, er = t.evmf.Build(t.addr, &address.Address{Address: addr}, t.logger)
 	if er != nil {
 		return nil, er
 	}
