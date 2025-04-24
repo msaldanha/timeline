@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"context"
+	"iter"
 
 	"github.com/msaldanha/setinstone/address"
 	"github.com/msaldanha/setinstone/graph"
@@ -19,8 +20,9 @@ type Graph interface {
 }
 
 type Iterator interface {
-	Last(ctx context.Context) (*graph.Node, error)
-	Prev(ctx context.Context) (*graph.Node, error)
+	Last() (*graph.Node, error)
+	Prev() (*graph.Node, error)
+	All() iter.Seq[*graph.Node]
 }
 
 type Timeline interface {

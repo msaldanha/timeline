@@ -3,12 +3,12 @@ module github.com/msaldanha/timeline
 go 1.24
 
 require (
-	github.com/golang/mock v1.6.0
 	github.com/ipfs/kubo v0.34.1
-	github.com/msaldanha/setinstone v0.0.0-20250418180422-082ebe79942f
+	github.com/msaldanha/setinstone v0.0.0-20250424140435-5ce81cdda030
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
 	go.etcd.io/bbolt v1.4.0
+	go.uber.org/mock v0.5.1
 	go.uber.org/zap v1.27.0
 )
 
@@ -197,7 +197,6 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/dig v1.18.1 // indirect
 	go.uber.org/fx v1.23.0 // indirect
-	go.uber.org/mock v0.5.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect

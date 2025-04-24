@@ -203,14 +203,14 @@ func (t *timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, key
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
 	var items []Item
-	for v, er := it.Last(ctx); er == nil && v != nil && (count == 0 || i < count); v, er = it.Prev(ctx) {
+	for v := range it.All() {
 		item, er := NewItemFromGraphNode(*v)
 		if er != nil {
 			return nil, t.translateError(er)
 		}
 		items = append(items, item)
 		i++
-		if v.Key == keyTo {
+		if v.Key == keyTo || i >= count {
 			break
 		}
 	}

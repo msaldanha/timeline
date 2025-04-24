@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"strconv"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
 	"github.com/msaldanha/setinstone/address"
@@ -194,19 +195,16 @@ var _ = Describe("Timeline", func() {
 		gr.EXPECT().GetIterator(gomock.Any(), "", "", keys[5]).Return(it)
 
 		count := 3
-		index := count
-		it.EXPECT().Last(gomock.Any()).DoAndReturn(func(_ context.Context) (*graph.Node, error) {
-			index--
-			n := nodes[index]
-			return n, nil
-		}).Times(1)
-		it.EXPECT().Prev(gomock.Any()).DoAndReturn(func(_ context.Context) (*graph.Node, error) {
-			index--
-			if index < 0 {
-				return nil, nil
+		it.EXPECT().All().DoAndReturn(func() iter.Seq[*graph.Node] {
+			index := 2
+			return func(yield func(node *graph.Node) bool) {
+				for i := index; i >= 0; i-- {
+					if !yield(nodes[i]) {
+						return
+					}
+				}
 			}
-			return nodes[index], nil
-		}).Times(count)
+		})
 
 		items, er := tl1.GetFrom(ctx, "", "", keys[5], "", count)
 
