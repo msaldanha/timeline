@@ -21,6 +21,15 @@ const (
 	compositeBucketName      = "compositeTimeline"
 	lastAddressKeyBucketName = "lastAddressKey"
 	defaultCount             = 20
+
+	// Logger related constants
+	loggerNameCompositeTimeline = "CompositeTimeline"
+	loggerFieldNamespace        = "namespace"
+	loggerFieldOwner            = "owner"
+
+	// Other string constants
+	emptyString = ""
+	mainBranch  = "main"
 )
 
 var (
@@ -45,7 +54,7 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 		return nil, ErrInvalidParameterEventManager
 	}
 
-	logger = logger.Named("CompositeTimeline").With(zap.String("namespace", ns), zap.String("owner", owner))
+	logger = logger.Named(loggerNameCompositeTimeline).With(zap.String(loggerFieldNamespace, ns), zap.String(loggerFieldOwner, owner))
 	return &CompositeTimeline{
 		watchers:    make(map[string]*Watcher),
 		mtx:         new(sync.Mutex),
@@ -94,7 +103,7 @@ func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
 		return ErrNotInitialized
 	}
 
-	if addr == nil || addr.Address == "" {
+	if addr == nil || addr.Address == emptyString {
 		return ErrInvalidParameterAddress
 	}
 	gr := graph.New(ct.ns, addr, ct.node, ct.logger)
@@ -230,11 +239,11 @@ func (ct *CompositeTimeline) loadMore(count int, getOlder bool) ([]Item, error) 
 	allItems := make([]Item, 0, len(watchers)*defaultCount)
 	for k, w := range watchers {
 		tl := w.GetTimeline()
-		tlLastKey := ""
+		tlLastKey := emptyString
 		if getOlder {
 			tlLastKey = ct.getLastKeyForAddress(k)
 		}
-		items, err := tl.GetFrom(context.Background(), "", "main", tlLastKey, "", totalToRetrieve)
+		items, err := tl.GetFrom(context.Background(), emptyString, mainBranch, tlLastKey, emptyString, totalToRetrieve)
 		if err != nil {
 			return nil, err
 		}
