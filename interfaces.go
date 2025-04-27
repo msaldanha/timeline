@@ -24,11 +24,3 @@ type Iterator interface {
 	Prev() (*graph.Node, error)
 	All() iter.Seq[*graph.Node]
 }
-
-type Timeline interface {
-	AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error)
-	AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error)
-	AddReceivedReference(ctx context.Context, refKey string) (string, error)
-	Get(ctx context.Context, key string) (Item, bool, error)
-	GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error)
-}

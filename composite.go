@@ -111,6 +111,19 @@ func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
 	return nil
 }
 
+func (ct *CompositeTimeline) AddTimeline(tl *Timeline) error {
+	if !ct.initialized {
+		return ErrNotInitialized
+	}
+
+	watcher := newWatcher(tl)
+	watcher.OnPostAdded(ct.onPostAdded)
+	ct.criticalSession(func() {
+		ct.watchers[tl.addr.Address] = watcher
+	})
+	return nil
+}
+
 func (ct *CompositeTimeline) RemoveTimeline(addr string) error {
 	er := ct.dao.DeleteLastKeyForAddress(addr)
 	if er != nil {

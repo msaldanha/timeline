@@ -9,12 +9,12 @@ import (
 )
 
 type Watcher struct {
-	tl     *timeline
+	tl     *Timeline
 	evm    event.Manager
 	logger *zap.Logger
 }
 
-func newWatcher(tl *timeline) *Watcher {
+func newWatcher(tl *Timeline) *Watcher {
 	return &Watcher{tl: tl, evm: tl.evm, logger: tl.logger.Named("Watcher" + tl.addr.Address)}
 }
 
@@ -38,6 +38,6 @@ func (w *Watcher) OnPostAdded(callback func(post Post)) {
 	})
 }
 
-func (w *Watcher) GetTimeline() Timeline {
+func (w *Watcher) GetTimeline() *Timeline {
 	return w.tl
 }

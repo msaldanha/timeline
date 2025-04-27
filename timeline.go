@@ -14,7 +14,7 @@ import (
 	"github.com/msaldanha/setinstone/graph"
 )
 
-type timeline struct {
+type Timeline struct {
 	gr        Graph
 	evm       event.Manager
 	evmf      event.ManagerFactory
@@ -24,11 +24,11 @@ type timeline struct {
 	logger    *zap.Logger
 }
 
-func NewTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerFactory, logger *zap.Logger) (Timeline, error) {
+func NewTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerFactory, logger *zap.Logger) (*Timeline, error) {
 	return newTimeline(ns, addr, gr, evmf, logger)
 }
 
-func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerFactory, logger *zap.Logger) (*timeline, error) {
+func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerFactory, logger *zap.Logger) (*Timeline, error) {
 
 	if gr == nil {
 		return nil, ErrInvalidParameterGraph
@@ -47,7 +47,7 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 
 	evmsCache := cache.NewMemoryCache[event.Manager](0)
 
-	tl := &timeline{
+	tl := &Timeline{
 		gr:        gr,
 		evm:       evm,
 		evmf:      evmf,
@@ -63,7 +63,7 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 }
 
 // AppendPost adds a post to the timeline and broadcasts post add event to any subscriber
-func (t *timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
+func (t *Timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -83,7 +83,7 @@ func (t *timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector
 
 // AppendReference adds a reference to a post (from other timeline) to the timeline and broadcasts reference
 // added event to any subscriber. It also sends referenced event to the target timeline.
-func (t *timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
+func (t *Timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -126,7 +126,7 @@ func (t *timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, 
 }
 
 // AddReceivedReference adds a reference to a post/item from this timeline
-func (t *timeline) AddReceivedReference(ctx context.Context, refKey string) (string, error) {
+func (t *Timeline) AddReceivedReference(ctx context.Context, refKey string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -186,7 +186,7 @@ func (t *timeline) AddReceivedReference(ctx context.Context, refKey string) (str
 }
 
 // Get retrieves one item by key
-func (t *timeline) Get(ctx context.Context, key string) (Item, bool, error) {
+func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 	v, found, er := t.gr.Get(ctx, key)
 	if er != nil {
 		return Item{}, false, t.translateError(er)
@@ -199,7 +199,7 @@ func (t *timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 }
 
 // GetFrom retrieves count items (at most) from the timeline starting at keyFrom and stopping at keyTo
-func (t *timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
+func (t *Timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
 	var items []Item
@@ -217,7 +217,7 @@ func (t *timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, key
 	return items, nil
 }
 
-func (t *timeline) canReceiveReference(item Item, con string) bool {
+func (t *Timeline) canReceiveReference(item Item, con string) bool {
 	found := false
 	for _, connector := range item.Branches {
 		if connector == con {
@@ -228,7 +228,7 @@ func (t *timeline) canReceiveReference(item Item, con string) bool {
 	return found
 }
 
-func (t *timeline) translateError(er error) error {
+func (t *Timeline) translateError(er error) error {
 	switch {
 	case errors.Is(er, graph.ErrReadOnly):
 		return ErrReadOnly
@@ -239,7 +239,7 @@ func (t *timeline) translateError(er error) error {
 	}
 }
 
-func (t *timeline) refAddedHandler(ev event.Event) {
+func (t *Timeline) refAddedHandler(ev event.Event) {
 	v, er := t.extractEvent(ev)
 	if er != nil {
 		return
@@ -248,7 +248,7 @@ func (t *timeline) refAddedHandler(ev event.Event) {
 	_, _ = t.AddReceivedReference(context.Background(), v.Id)
 }
 
-func (t *timeline) broadcast(eventType, eventValue string) {
+func (t *Timeline) broadcast(eventType, eventValue string) {
 	ev := Event{
 		Type: eventType,
 		Id:   eventValue,
@@ -256,7 +256,7 @@ func (t *timeline) broadcast(eventType, eventValue string) {
 	_ = t.evm.Emit(eventType, ev.ToJson())
 }
 
-func (t *timeline) sendEventToTimeline(addr, eventType, eventValue string) {
+func (t *Timeline) sendEventToTimeline(addr, eventType, eventValue string) {
 	evm, er := t.getEvmForTimeline(addr)
 	if er != nil {
 		t.logger.Error("Unable to get event manager", zap.String("addr", addr), zap.Error(er))
@@ -269,7 +269,7 @@ func (t *timeline) sendEventToTimeline(addr, eventType, eventValue string) {
 	_ = evm.Emit(eventType, ev.ToJson())
 }
 
-func (t *timeline) getEvmForTimeline(addr string) (event.Manager, error) {
+func (t *Timeline) getEvmForTimeline(addr string) (event.Manager, error) {
 	evm, found, er := t.evmsCache.Get(addr)
 	if er != nil {
 		return nil, er
@@ -285,7 +285,7 @@ func (t *timeline) getEvmForTimeline(addr string) (event.Manager, error) {
 	return evm, nil
 }
 
-func (t *timeline) extractEvent(ev event.Event) (Event, error) {
+func (t *Timeline) extractEvent(ev event.Event) (Event, error) {
 	logger := t.logger.With(zap.String("name", ev.Name()), zap.String("data", string(ev.Data())))
 	logger.Info("Received event")
 
@@ -299,7 +299,7 @@ func (t *timeline) extractEvent(ev event.Event) (Event, error) {
 	return v, nil
 }
 
-func (t *timeline) checkCanWrite() error {
+func (t *Timeline) checkCanWrite() error {
 	if t.addr == nil || !t.addr.HasKeys() {
 		return ErrReadOnly
 	}
