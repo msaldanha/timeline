@@ -89,21 +89,16 @@ func (ct *CompositeTimeline) Run() error {
 	}
 }
 
-func (ct *CompositeTimeline) LoadTimeline(addr string) error {
+func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
 	if !ct.initialized {
 		return ErrNotInitialized
 	}
 
-	return ct.loadTimeline(addr)
-}
-
-func (ct *CompositeTimeline) loadTimeline(addr string) error {
-	a := &address.Address{
-		Address: addr,
+	if addr == nil || addr.Address == "" {
+		return ErrInvalidParameterAddress
 	}
-
-	gr := graph.New(ct.ns, a, ct.node, ct.logger)
-	tl, er := newTimeline(ct.ns, a, gr, ct.evmf, ct.logger)
+	gr := graph.New(ct.ns, addr, ct.node, ct.logger)
+	tl, er := newTimeline(ct.ns, addr, gr, ct.evmf, ct.logger)
 	if er != nil {
 		return er
 	}
