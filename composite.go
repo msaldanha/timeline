@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ipfs/kubo/core"
@@ -37,16 +38,21 @@ var (
 )
 
 type CompositeTimeline struct {
-	watchers    map[string]*Watcher
-	mtx         *sync.Mutex
-	initialized bool
-	node        *core.IpfsNode
-	evm         event.Manager
-	evmf        event.ManagerFactory
-	ns          string
-	logger      *zap.Logger
-	owner       string
-	dao         Dao
+	watchers         map[string]*Watcher
+	mtx              *sync.Mutex
+	initialized      bool
+	node             *core.IpfsNode
+	evm              event.Manager
+	evmf             event.ManagerFactory
+	ns               string
+	logger           *zap.Logger
+	owner            string
+	dao              Dao
+	runOnce          sync.Once
+	stopOnce         sync.Once
+	isRunning        atomic.Bool
+	ctx              context.Context
+	cancelRunCtxFunc context.CancelFunc
 }
 
 func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFactory, logger *zap.Logger, owner string, dao Dao) (*CompositeTimeline, error) {
@@ -55,16 +61,22 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 	}
 
 	logger = logger.Named(loggerNameCompositeTimeline).With(zap.String(loggerFieldNamespace, ns), zap.String(loggerFieldOwner, owner))
+	ctx, cancel := context.WithCancel(context.Background())
 	return &CompositeTimeline{
-		watchers:    make(map[string]*Watcher),
-		mtx:         new(sync.Mutex),
-		initialized: false,
-		node:        node,
-		ns:          ns,
-		evmf:        evmf,
-		logger:      logger,
-		owner:       owner,
-		dao:         dao,
+		watchers:         make(map[string]*Watcher),
+		mtx:              new(sync.Mutex),
+		initialized:      false,
+		node:             node,
+		ns:               ns,
+		evmf:             evmf,
+		logger:           logger,
+		owner:            owner,
+		dao:              dao,
+		runOnce:          sync.Once{},
+		stopOnce:         sync.Once{},
+		isRunning:        atomic.Bool{},
+		ctx:              ctx,
+		cancelRunCtxFunc: cancel,
 	}, nil
 }
 
@@ -79,6 +91,9 @@ func (ct *CompositeTimeline) Init() error {
 }
 
 func (ct *CompositeTimeline) Refresh() error {
+	if !ct.initialized {
+		return ErrNotInitialized
+	}
 	_, er := ct.loadMore(defaultCount, false)
 	return er
 }
@@ -88,14 +103,36 @@ func (ct *CompositeTimeline) Run() error {
 		return ErrNotInitialized
 	}
 
-	tk := time.NewTicker(time.Second * 10)
-	defer tk.Stop()
-	for {
-		select {
-		case <-tk.C:
-			ct.Refresh()
-		}
+	ct.runOnce.Do(func() {
+		ct.isRunning.Store(true)
+		go func() {
+			tk := time.NewTicker(time.Second * 10)
+			defer tk.Stop()
+			defer ct.isRunning.Store(false)
+			for {
+				select {
+				case <-tk.C:
+					ct.Refresh()
+				case <-ct.ctx.Done():
+					break
+				}
+			}
+		}()
+	})
+	return nil
+}
+
+func (ct *CompositeTimeline) Stop() error {
+	if !ct.initialized {
+		return ErrNotInitialized
 	}
+	if !ct.isRunning.Load() {
+		return nil
+	}
+	ct.stopOnce.Do(func() {
+		ct.cancelRunCtxFunc()
+	})
+	return nil
 }
 
 func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
@@ -154,13 +191,6 @@ func (ct *CompositeTimeline) GetFrom(_ context.Context, keyFrom string, count in
 	results, er := ct.readFrom(keyFrom, count)
 	if er != nil {
 		return nil, er
-	}
-	if len(results) < count {
-		toLoad := count - len(results)
-		more, er := ct.loadMore(toLoad, true)
-		if er == nil {
-			results = append(results, more...)
-		}
 	}
 	return results, nil
 }
