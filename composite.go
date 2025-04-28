@@ -94,6 +94,14 @@ func (ct *CompositeTimeline) Refresh() error {
 	if !ct.initialized {
 		return ErrNotInitialized
 	}
+	_, er := ct.loadMore(defaultCount, true)
+	return er
+}
+
+func (ct *CompositeTimeline) Rebuild() error {
+	if !ct.initialized {
+		return ErrNotInitialized
+	}
 	_, er := ct.loadMore(defaultCount, false)
 	return er
 }
