@@ -53,6 +53,8 @@ type CompositeTimeline struct {
 	dao              Dao
 	runOnce          sync.Once
 	stopOnce         sync.Once
+	initOnce         sync.Once
+	initErr          error
 	isRunning        atomic.Bool
 	ctx              context.Context
 	cancelRunCtxFunc context.CancelFunc
@@ -80,6 +82,8 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 		dao:              dao,
 		runOnce:          sync.Once{},
 		stopOnce:         sync.Once{},
+		initOnce:         sync.Once{},
+		initErr:          nil,
 		isRunning:        atomic.Bool{},
 		ctx:              ctx,
 		cancelRunCtxFunc: cancel,
@@ -90,13 +94,15 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 // It initializes the data access object and sets the initialized flag to true.
 // Returns an error if the initialization fails.
 func (ct *CompositeTimeline) Init() error {
-	er := ct.dao.Init()
-	if er != nil {
-		return er
-	}
+	ct.initOnce.Do(func() {
+		ct.initErr = ct.dao.Init()
+		if ct.initErr != nil {
+			return
+		}
+		ct.initialized = true
+	})
 
-	ct.initialized = true
-	return nil
+	return ct.initErr
 }
 
 // Refresh updates the composite timeline by loading more items from the underlying timelines.
