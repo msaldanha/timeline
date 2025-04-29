@@ -37,6 +37,9 @@ var (
 	ErrNotInitialized = errors.New("not initialized")
 )
 
+// CompositeTimeline manages multiple timelines and combines their content into a single timeline.
+// It provides functionality to load, add, and remove timelines, as well as to retrieve and manipulate
+// timeline items.
 type CompositeTimeline struct {
 	watchers         map[string]*Watcher
 	mtx              *sync.Mutex
@@ -55,6 +58,9 @@ type CompositeTimeline struct {
 	cancelRunCtxFunc context.CancelFunc
 }
 
+// NewCompositeTimeline creates a new CompositeTimeline instance.
+// It takes a namespace, an IPFS node, an event manager factory, a logger, an owner identifier, and a data access object.
+// Returns a new CompositeTimeline instance and an error if the event manager factory is nil.
 func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFactory, logger *zap.Logger, owner string, dao Dao) (*CompositeTimeline, error) {
 	if evmf == nil {
 		return nil, ErrInvalidParameterEventManager
@@ -80,6 +86,9 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 	}, nil
 }
 
+// Init initializes the CompositeTimeline.
+// It initializes the data access object and sets the initialized flag to true.
+// Returns an error if the initialization fails.
 func (ct *CompositeTimeline) Init() error {
 	er := ct.dao.Init()
 	if er != nil {
@@ -90,6 +99,8 @@ func (ct *CompositeTimeline) Init() error {
 	return nil
 }
 
+// Refresh updates the composite timeline by loading more items from the underlying timelines.
+// It returns an error if the CompositeTimeline is not initialized or if loading more items fails.
 func (ct *CompositeTimeline) Refresh() error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -98,6 +109,9 @@ func (ct *CompositeTimeline) Refresh() error {
 	return er
 }
 
+// Rebuild reconstructs the composite timeline by loading items from the underlying timelines.
+// Unlike Refresh, it starts from the beginning rather than continuing from the last known point.
+// Returns an error if the CompositeTimeline is not initialized or if loading items fails.
 func (ct *CompositeTimeline) Rebuild() error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -106,6 +120,10 @@ func (ct *CompositeTimeline) Rebuild() error {
 	return er
 }
 
+// Run starts a background process that periodically refreshes the composite timeline.
+// The refresh happens every 10 seconds until Stop is called.
+// Returns an error if the CompositeTimeline is not initialized.
+// This method is idempotent and will only start the background process once.
 func (ct *CompositeTimeline) Run() error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -130,6 +148,10 @@ func (ct *CompositeTimeline) Run() error {
 	return nil
 }
 
+// Stop halts the background refresh process started by Run.
+// Returns an error if the CompositeTimeline is not initialized.
+// This method is idempotent and will only stop the background process once.
+// If the background process is not running, this method does nothing and returns nil.
 func (ct *CompositeTimeline) Stop() error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -143,6 +165,10 @@ func (ct *CompositeTimeline) Stop() error {
 	return nil
 }
 
+// LoadTimeline loads a timeline from the given address and adds it to the composite timeline.
+// It creates a new timeline instance, sets up a watcher for it, and registers the watcher with the composite timeline.
+// Returns an error if the CompositeTimeline is not initialized, if the address is nil or empty,
+// or if creating the timeline fails.
 func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -165,6 +191,9 @@ func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
 	return nil
 }
 
+// AddTimeline adds an existing timeline to the composite timeline.
+// It sets up a watcher for the timeline and registers the watcher with the composite timeline.
+// Returns an error if the CompositeTimeline is not initialized.
 func (ct *CompositeTimeline) AddTimeline(tl *Timeline) error {
 	if !ct.initialized {
 		return ErrNotInitialized
@@ -178,6 +207,9 @@ func (ct *CompositeTimeline) AddTimeline(tl *Timeline) error {
 	return nil
 }
 
+// RemoveTimeline removes a timeline with the given address from the composite timeline.
+// It deletes the last key for the address from the data store and removes the watcher for the timeline.
+// Returns an error if deleting the last key fails.
 func (ct *CompositeTimeline) RemoveTimeline(addr string) error {
 	er := ct.dao.DeleteLastKeyForAddress(addr)
 	if er != nil {
@@ -189,6 +221,10 @@ func (ct *CompositeTimeline) RemoveTimeline(addr string) error {
 	return nil
 }
 
+// GetFrom retrieves items from the composite timeline starting from the given key.
+// It takes a context (which is currently not used), a starting key, and the maximum number of items to retrieve.
+// Returns a slice of items and an error if the CompositeTimeline is not initialized or if reading fails.
+// If count is less than or equal to 0, an empty slice is returned.
 func (ct *CompositeTimeline) GetFrom(_ context.Context, keyFrom string, count int) ([]Item, error) {
 	if !ct.initialized {
 		return nil, ErrNotInitialized
@@ -203,6 +239,9 @@ func (ct *CompositeTimeline) GetFrom(_ context.Context, keyFrom string, count in
 	return results, nil
 }
 
+// Get retrieves a single item from the composite timeline by its key.
+// It takes a context and a key to identify the item.
+// Returns the item, a boolean indicating whether the item was found, and an error if the retrieval fails.
 func (ct *CompositeTimeline) Get(ctx context.Context, key string) (Item, bool, error) {
 	return ct.dao.Get(ctx, key)
 }
@@ -211,10 +250,16 @@ func (ct *CompositeTimeline) onPostAdded(post Post) {
 
 }
 
+// Save stores an item in the composite timeline.
+// It takes an item to store and delegates the operation to the data access object.
+// Returns an error if the save operation fails.
 func (ct *CompositeTimeline) Save(item Item) error {
 	return ct.dao.Put(item)
 }
 
+// Clear removes all items from the composite timeline.
+// It delegates the operation to the data access object.
+// Returns an error if the clear operation fails.
 func (ct *CompositeTimeline) Clear() error {
 	return ct.dao.DeleteAll()
 }

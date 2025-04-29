@@ -9,6 +9,9 @@ import (
 )
 
 //go:generate mockgen -source=interfaces.go -destination=graph_mock.go -package=timeline Graph,Iterator
+
+// Graph defines the interface for a graph data structure used by the timeline.
+// It provides methods for storing, retrieving, and iterating over nodes in the graph.
 type Graph interface {
 	GetName() string
 	GetMetaData() string
@@ -19,6 +22,8 @@ type Graph interface {
 	Manage(addr *address.Address) error
 }
 
+// Iterator defines the interface for iterating over nodes in a graph.
+// It provides methods for navigating through the nodes and retrieving them.
 type Iterator interface {
 	Last() (*graph.Node, error)
 	Prev() (*graph.Node, error)

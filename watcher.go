@@ -8,6 +8,8 @@ import (
 	"github.com/msaldanha/setinstone/event"
 )
 
+// Watcher observes a timeline for events and provides callbacks for handling them.
+// It allows registering callbacks for specific events like post additions.
 type Watcher struct {
 	tl     *Timeline
 	evm    event.Manager
@@ -18,6 +20,8 @@ func newWatcher(tl *Timeline) *Watcher {
 	return &Watcher{tl: tl, evm: tl.evm, logger: tl.logger.Named("Watcher" + tl.addr.Address)}
 }
 
+// OnPostAdded registers a callback function that will be called when a new post is added to the timeline.
+// The callback receives the Post that was added.
 func (w *Watcher) OnPostAdded(callback func(post Post)) {
 	w.evm.On(EventTypes.EventPostAdded, func(ev event.Event) {
 		e, er := extractEvent(ev)
@@ -38,6 +42,7 @@ func (w *Watcher) OnPostAdded(callback func(post Post)) {
 	})
 }
 
+// GetTimeline returns the Timeline instance that this Watcher is observing.
 func (w *Watcher) GetTimeline() *Timeline {
 	return w.tl
 }

@@ -14,6 +14,9 @@ import (
 	"github.com/msaldanha/setinstone/graph"
 )
 
+// Timeline represents a sequence of items (posts and references) that can be appended to and retrieved.
+// It provides functionality for adding posts, creating references to posts in other timelines,
+// and retrieving items from the timeline.
 type Timeline struct {
 	gr        Graph
 	evm       event.Manager
@@ -24,6 +27,9 @@ type Timeline struct {
 	logger    *zap.Logger
 }
 
+// NewTimeline creates a new Timeline instance.
+// It takes a namespace, an address, a graph implementation, an event manager factory, and a logger.
+// Returns a new Timeline instance and an error if creation fails.
 func NewTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerFactory, logger *zap.Logger) (*Timeline, error) {
 	return newTimeline(ns, addr, gr, evmf, logger)
 }
@@ -62,7 +68,9 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 	return tl, nil
 }
 
-// AppendPost adds a post to the timeline and broadcasts post add event to any subscriber
+// AppendPost adds a post to the timeline and broadcasts a post-added event to any subscribers.
+// It takes a context, the post to add, a root key, and a connector string.
+// Returns the key of the added post and an error if the operation fails.
 func (t *Timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
@@ -81,8 +89,10 @@ func (t *Timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector
 	return i.Key, nil
 }
 
-// AppendReference adds a reference to a post (from other timeline) to the timeline and broadcasts reference
-// added event to any subscriber. It also sends referenced event to the target timeline.
+// AppendReference adds a reference to a post from another timeline and broadcasts a reference-added event.
+// It also sends a referenced event to the target timeline.
+// It takes a context, the reference to add, a root key, and a connector string.
+// Returns the key of the added reference and an error if the operation fails.
 func (t *Timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
@@ -125,7 +135,10 @@ func (t *Timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, 
 	return i.Key, nil
 }
 
-// AddReceivedReference adds a reference to a post/item from this timeline
+// AddReceivedReference processes a reference received from another timeline.
+// It validates the reference, adds it to the timeline if valid, and broadcasts a reference-received event.
+// It takes a context and the key of the reference.
+// Returns the key of the processed reference and an error if the operation fails.
 func (t *Timeline) AddReceivedReference(ctx context.Context, refKey string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
@@ -185,7 +198,9 @@ func (t *Timeline) AddReceivedReference(ctx context.Context, refKey string) (str
 	return i.Key, nil
 }
 
-// Get retrieves one item by key
+// Get retrieves a single item from the timeline by its key.
+// It takes a context and a key to identify the item.
+// Returns the item, a boolean indicating whether the item was found, and an error if the retrieval fails.
 func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 	v, found, er := t.gr.Get(ctx, key)
 	if er != nil {
@@ -198,7 +213,10 @@ func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 	return i, found, nil
 }
 
-// GetFrom retrieves count items (at most) from the timeline starting at keyFrom and stopping at keyTo
+// GetFrom retrieves multiple items from the timeline starting from a specific key.
+// It takes a context, a root key, a connector string, a starting key, an ending key, and the maximum number of items to retrieve.
+// Returns a slice of items and an error if the retrieval fails.
+// If count is less than or equal to 0, an empty slice is returned.
 func (t *Timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
