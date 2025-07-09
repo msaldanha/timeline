@@ -220,7 +220,7 @@ func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 func (t *Timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
-	var items []Item
+	var items = make([]Item, 0)
 	for v := range it.All() {
 		item, er := NewItemFromGraphNode(*v)
 		if er != nil {
