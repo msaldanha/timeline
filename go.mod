@@ -4,10 +4,10 @@ go 1.24
 
 require (
 	github.com/ipfs/kubo v0.34.1
-	github.com/msaldanha/setinstone v0.0.0-20250709144809-74855ffbd021
+	github.com/msaldanha/setinstone v0.0.0-20250712212532-ac3aa2e6d4d0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
-	go.etcd.io/bbolt v1.4.0
+	go.etcd.io/bbolt v1.4.2
 	go.uber.org/mock v0.5.1
 	go.uber.org/zap v1.27.0
 )
@@ -179,7 +179,6 @@ require (
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
-	github.com/zeebo/assert v1.3.0 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

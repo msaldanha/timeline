@@ -11,9 +11,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
-	"github.com/msaldanha/setinstone/address"
 	"github.com/msaldanha/setinstone/event"
-	"github.com/msaldanha/setinstone/graph"
 )
 
 const (
@@ -171,32 +169,6 @@ func (ct *CompositeTimeline) Stop() error {
 	return nil
 }
 
-// LoadTimeline loads a timeline from the given address and adds it to the composite timeline.
-// It creates a new timeline instance, sets up a watcher for it, and registers the watcher with the composite timeline.
-// Returns an error if the CompositeTimeline is not initialized, if the address is nil or empty,
-// or if creating the timeline fails.
-func (ct *CompositeTimeline) LoadTimeline(addr *address.Address) error {
-	if !ct.initialized {
-		return ErrNotInitialized
-	}
-
-	if addr == nil || addr.Address == emptyString {
-		return ErrInvalidParameterAddress
-	}
-	gr := graph.New(ct.ns, addr, ct.node, ct.logger)
-	tl, er := newTimeline(ct.ns, addr, gr, ct.evmf, ct.logger)
-	if er != nil {
-		return er
-	}
-
-	watcher := newWatcher(tl)
-	watcher.OnPostAdded(ct.onPostAdded)
-	ct.criticalSession(func() {
-		ct.watchers[tl.addr.Address] = watcher
-	})
-	return nil
-}
-
 // AddTimeline adds an existing timeline to the composite timeline.
 // It sets up a watcher for the timeline and registers the watcher with the composite timeline.
 // Returns an error if the CompositeTimeline is not initialized.
@@ -332,7 +304,7 @@ func (ct *CompositeTimeline) loadMore(count int, getOlder bool) ([]Item, error) 
 		if getOlder {
 			tlLastKey = ct.getLastKeyForAddress(k)
 		}
-		items, err := tl.GetFrom(context.Background(), emptyString, mainBranch, tlLastKey, emptyString, totalToRetrieve)
+		items, err := tl.GetFrom(context.Background(), emptyString, mainBranch, emptyString, tlLastKey, totalToRetrieve)
 		if err != nil {
 			return nil, err
 		}
