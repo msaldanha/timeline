@@ -7,8 +7,14 @@ import (
 )
 
 const (
-	TypePost      = "Post"
-	TypeReference = "Reference"
+	TypePost            = "Post"
+	TypeReference       = "Reference"
+	TypeLike            = "Like"
+	TypeReceivedLike    = "ReceivedLike"
+	TypeComment         = "Comment"
+	TypeReceivedComment = "ReceivedComment"
+	TypeReply           = "Reply"
+	TypeRepost          = "Repost"
 )
 
 // Base is the common structure for timeline items.
@@ -44,20 +50,41 @@ type Post struct {
 	Attachments []PostPart `json:"attachments,omitempty"`
 }
 
-// Reference represents a link to a Post in another timeline.
-// It extends Base and includes the connector to use and the target Post key.
-type Reference struct {
+type Like struct {
 	Base
 	Connector string `json:"connector,omitempty"`
+	Target    string `json:"target,omitempty"`
+}
+
+type ReceivedLike struct {
+	Base
+	Connector string `json:"connector,omitempty"`
+	Origin    string `json:"origin,omitempty"`
+	Target    string `json:"target,omitempty"`
+}
+
+type Comment struct {
+	Post
+	Connector string `json:"connector,omitempty"`
+	Target    string `json:"target,omitempty"`
+}
+
+type ReceivedComment struct {
+	Base
+	Connector string `json:"connector,omitempty"`
+	Origin    string `json:"origin,omitempty"`
 	Target    string `json:"target,omitempty"`
 }
 
 // Item represents an entry in a timeline, which can be either a Post or a Reference.
 // It extends graph.Node and includes either a Post or a Reference.
 type Item struct {
-	graph.Node
-	Post      *Post      `json:"post,omitempty"`
-	Reference *Reference `json:"reference,omitempty"`
+	Key       string   `json:"key,omitempty"`
+	Seq       int32    `json:"seq,omitempty"`
+	Timestamp string   `json:"timestamp,omitempty"`
+	Address   string   `json:"address,omitempty"`
+	Branches  []string `json:"branches,omitempty"`
+	Entry     any      `json:"entry,omitempty"`
 }
 
 // NewItemFromGraphNode creates an Item from a graph.Node.
@@ -71,20 +98,26 @@ func NewItemFromGraphNode(v graph.Node) (Item, error) {
 	}
 
 	item := Item{
-		Node: v,
+		Key:       v.Key,
+		Seq:       v.Seq,
+		Timestamp: v.Timestamp,
+		Address:   v.Address,
+		Branches:  v.Branches,
 	}
 
 	switch base.Type {
-	case TypeReference:
-		ri := Reference{}
-		er = json.Unmarshal(v.Data, &ri)
-		item.Reference = &ri
 	case TypePost:
-		p := Post{}
-		er = json.Unmarshal(v.Data, &p)
-		item.Post = &p
+		item.Entry, er = unmarshal[Post](v.Data)
+	case TypeLike:
+		item.Entry, er = unmarshal[Like](v.Data)
+	case TypeReceivedLike:
+		item.Entry, er = unmarshal[ReceivedLike](v.Data)
+	case TypeComment:
+		item.Entry, er = unmarshal[Comment](v.Data)
+	case TypeReceivedComment:
+		item.Entry, er = unmarshal[ReceivedComment](v.Data)
 	default:
-		er = ErrUnknownType
+		return Item{}, ErrUnknownType
 	}
 
 	if er != nil {
@@ -92,4 +125,10 @@ func NewItemFromGraphNode(v graph.Node) (Item, error) {
 	}
 
 	return item, nil
+}
+
+func unmarshal[T any](data []byte) (T, error) {
+	var v T
+	err := json.Unmarshal(data, &v)
+	return v, err
 }

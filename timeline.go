@@ -68,10 +68,10 @@ func newTimeline(ns string, addr *address.Address, gr Graph, evmf event.ManagerF
 	return tl, nil
 }
 
-// AppendPost adds a post to the timeline and broadcasts a post-added event to any subscribers.
+// AddPost adds a post to the timeline and broadcasts a post-added event to any subscribers.
 // It takes a context, the post to add, a root key, and a connector string.
 // Returns the key of the added post and an error if the operation fails.
-func (t *Timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
+func (t *Timeline) AddPost(ctx context.Context, post Post, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
@@ -89,40 +89,35 @@ func (t *Timeline) AppendPost(ctx context.Context, post Post, keyRoot, connector
 	return i.Key, nil
 }
 
-// AppendReference adds a reference to a post from another timeline and broadcasts a reference-added event.
+// AddLike adds a like reference to a post from another timeline and broadcasts a reference-added event.
 // It also sends a referenced event to the target timeline.
-// It takes a context, the reference to add, a root key, and a connector string.
+// It takes a context, the like to add, a root key, and a connector string.
 // Returns the key of the added reference and an error if the operation fails.
-func (t *Timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, connector string) (string, error) {
+func (t *Timeline) AddLike(ctx context.Context, like Like, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
 	}
-	ref.Type = TypeReference
-	v, _, er := t.Get(ctx, ref.Target)
+	like.Type = TypeLike
+	itemFromOtherTimeline, _, er := t.Get(ctx, like.Target)
 	if er != nil {
 		return "", er
 	}
-	if v.Reference != nil {
+
+	switch itemFromOtherTimeline.Entry.(type) {
+	case Like, ReceivedLike:
 		return "", ErrCannotRefARef
 	}
 
-	if v.Address == t.gr.GetAddress(ctx).Address {
+	if itemFromOtherTimeline.Address == t.gr.GetAddress(ctx).Address {
 		return "", ErrCannotRefOwnItem
 	}
 
-	if !t.canReceiveReference(v, ref.Connector) {
+	if !t.canReceiveReference(itemFromOtherTimeline, like.Connector) {
 		return "", ErrCannotAddReference
 	}
 
-	mi := Reference{
-		Connector: ref.Connector,
-		Target:    ref.Target,
-		Base: Base{
-			Type: TypeReference,
-		},
-	}
-	js, er := json.Marshal(mi)
+	js, er := json.Marshal(like)
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -131,20 +126,20 @@ func (t *Timeline) AppendReference(ctx context.Context, ref Reference, keyRoot, 
 		return "", t.translateError(er)
 	}
 	t.broadcast(EventTypes.EventReferenceAdded, i.Key)
-	t.sendEventToTimeline(v.Address, EventTypes.EventReferenced, i.Key)
+	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key)
 	return i.Key, nil
 }
 
-// AddReceivedReference processes a reference received from another timeline.
+// AddReceivedLike processes a like reference received from another timeline.
 // It validates the reference, adds it to the timeline if valid, and broadcasts a reference-received event.
 // It takes a context and the key of the reference.
 // Returns the key of the processed reference and an error if the operation fails.
-func (t *Timeline) AddReceivedReference(ctx context.Context, refKey string) (string, error) {
+func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
 	}
-	item, found, er := t.Get(ctx, refKey)
+	itemFromOtherTimeline, found, er := t.Get(ctx, receivedLikeKey)
 	if er != nil {
 		return "", er
 	}
@@ -152,46 +147,150 @@ func (t *Timeline) AddReceivedReference(ctx context.Context, refKey string) (str
 		return "", ErrNotFound
 	}
 
-	receivedRef := item.Reference
-	if receivedRef == nil {
+	receivedLike, ok := itemFromOtherTimeline.Entry.(Like)
+	if !ok {
 		return "", ErrNotAReference
 	}
 
-	if item.Address == t.gr.GetAddress(ctx).Address {
+	if itemFromOtherTimeline.Address == t.gr.GetAddress(ctx).Address {
 		return "", ErrCannotRefOwnItem
 	}
 
-	item, found, er = t.Get(ctx, receivedRef.Target)
+	itemFromThisTimeline, found, er := t.Get(ctx, receivedLike.Target)
 	if er != nil {
 		return "", er
 	}
 	if !found {
 		return "", ErrNotFound
 	}
-	if item.Post == nil {
+
+	switch itemFromThisTimeline.Entry.(type) {
+	case Post, Comment:
+	default:
 		return "", ErrCannotAddReference
 	}
 
-	if item.Address != t.gr.GetAddress(ctx).Address {
+	if itemFromThisTimeline.Address != t.gr.GetAddress(ctx).Address {
 		return "", ErrCannotAddRefToNotOwnedItem
 	}
 
-	if !t.canReceiveReference(item, receivedRef.Connector) {
+	if !t.canReceiveReference(itemFromThisTimeline, receivedLike.Connector) {
 		return "", ErrCannotAddReference
 	}
 
-	li := Reference{
-		Target:    refKey,
-		Connector: receivedRef.Connector,
+	li := ReceivedLike{
+		Target:    itemFromThisTimeline.Key,
+		Origin:    itemFromOtherTimeline.Key,
+		Connector: receivedLike.Connector,
 		Base: Base{
-			Type: TypeReference,
+			Type: TypeReceivedLike,
 		},
 	}
 	js, er := json.Marshal(li)
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, item.Key, graph.NodeData{Branch: receivedRef.Connector, Data: js})
+	i, er := t.gr.Append(ctx, itemFromOtherTimeline.Key, graph.NodeData{Branch: receivedLike.Connector, Data: js})
+	if er != nil {
+		return "", t.translateError(er)
+	}
+	return i.Key, nil
+}
+
+func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, connector string) (string, error) {
+	er := t.checkCanWrite()
+	if er != nil {
+		return "", er
+	}
+	comment.Type = TypeComment
+	itemFromOtherTimeline, _, er := t.Get(ctx, comment.Target)
+	if er != nil {
+		return "", er
+	}
+
+	switch itemFromOtherTimeline.Entry.(type) {
+	case Like, ReceivedLike:
+		return "", ErrCannotAddReference
+	}
+
+	if itemFromOtherTimeline.Address == t.gr.GetAddress(ctx).Address {
+		return "", ErrCannotRefOwnItem
+	}
+
+	if !t.canReceiveReference(itemFromOtherTimeline, comment.Connector) {
+		return "", ErrCannotAddReference
+	}
+
+	js, er := json.Marshal(comment)
+	if er != nil {
+		return "", t.translateError(er)
+	}
+	i, er := t.gr.Append(ctx, keyRoot, graph.NodeData{Branch: connector, Data: js})
+	if er != nil {
+		return "", t.translateError(er)
+	}
+	t.broadcast(EventTypes.EventReferenceAdded, i.Key)
+	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key)
+	return i.Key, nil
+}
+
+func (t *Timeline) AddReceivedComment(ctx context.Context, receivedCommentKey string) (string, error) {
+	er := t.checkCanWrite()
+	if er != nil {
+		return "", er
+	}
+	itemFromOtherTimeline, found, er := t.Get(ctx, receivedCommentKey)
+	if er != nil {
+		return "", er
+	}
+	if !found {
+		return "", ErrNotFound
+	}
+
+	receivedComment, ok := itemFromOtherTimeline.Entry.(Comment)
+	if !ok {
+		return "", ErrNotAReference
+	}
+
+	if itemFromOtherTimeline.Address == t.gr.GetAddress(ctx).Address {
+		return "", ErrCannotRefOwnItem
+	}
+
+	itemFromThisTimeline, found, er := t.Get(ctx, receivedComment.Target)
+	if er != nil {
+		return "", er
+	}
+	if !found {
+		return "", ErrNotFound
+	}
+
+	switch itemFromThisTimeline.Entry.(type) {
+	case Post, Comment:
+	default:
+		return "", ErrCannotAddReference
+	}
+
+	if itemFromThisTimeline.Address != t.gr.GetAddress(ctx).Address {
+		return "", ErrCannotAddRefToNotOwnedItem
+	}
+
+	if !t.canReceiveReference(itemFromThisTimeline, receivedComment.Connector) {
+		return "", ErrCannotAddReference
+	}
+
+	li := ReceivedComment{
+		Target:    itemFromThisTimeline.Key,
+		Origin:    itemFromOtherTimeline.Key,
+		Connector: receivedComment.Connector,
+		Base: Base{
+			Type: TypeReceivedComment,
+		},
+	}
+	js, er := json.Marshal(li)
+	if er != nil {
+		return "", t.translateError(er)
+	}
+	i, er := t.gr.Append(ctx, itemFromOtherTimeline.Key, graph.NodeData{Branch: receivedComment.Connector, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -263,7 +362,7 @@ func (t *Timeline) refAddedHandler(ev event.Event) {
 		return
 	}
 	t.logger.Info("Received reference", zap.String("type", v.Type), zap.String("id", v.Id))
-	_, _ = t.AddReceivedReference(context.Background(), v.Id)
+	_, _ = t.AddReceivedLike(context.Background(), v.Id)
 }
 
 func (t *Timeline) broadcast(eventType, eventValue string) {
