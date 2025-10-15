@@ -151,6 +151,216 @@ var _ = Describe("Timeline", func() {
 		Expect(receivedKey).To(Equal(referenceKey))
 	})
 
+	It("Should add a like to a post from another timeline", func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		defer mockCtrl.Finish()
+
+		otherAddr, _ := address.NewAddressWithKeys()
+		gr := timeline.NewMockGraph(mockCtrl)
+
+		evf, evm := createMockFactoryAndManager(mockCtrl, ns)
+		evm.EXPECT().On(timeline.EventTypes.EventReferenced, gomock.Any()).Return(&event.Subscription{})
+
+		tl1, _ := timeline.NewTimeline(ns, addr, gr, evf, logger)
+
+		postKey := "postKey"
+		likeKey := "likeKey"
+		expectedPost := timeline.Post{
+			Base: timeline.Base{Type: timeline.TypePost, Connectors: []string{likeRef}},
+			Part: timeline.Part{MimeType: "plain/text", Body: "some text"},
+		}
+		postjson, _ := json.Marshal(expectedPost)
+
+		// Mock getting the post from another timeline
+		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{
+			Key:      postKey,
+			Address:  otherAddr.Address,
+			Data:     postjson,
+			Branches: []string{likeRef},
+		}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+
+		// Mock appending the like
+		gr.EXPECT().Append(gomock.Any(), "", gomock.Any()).Return(graph.Node{Key: likeKey}, nil)
+
+		// Mock event emission
+		evm.EXPECT().Emit(timeline.EventTypes.EventReferenceAdded, gomock.Any()).Return(nil)
+
+		// Mock getting event manager for target timeline and emitting event
+		targetEvm := event.NewMockManager(mockCtrl)
+		evf.EXPECT().Build(addr, &address.Address{Address: otherAddr.Address}, gomock.Any()).Return(targetEvm, nil)
+		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).Return(nil)
+
+		like := timeline.Like{Target: postKey, Connector: likeRef}
+		key, er := tl1.AddLike(ctx, like, "", "main")
+
+		Expect(er).To(BeNil())
+		Expect(key).To(Equal(likeKey))
+	})
+
+	It("Should add a comment to a post from another timeline", func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		defer mockCtrl.Finish()
+
+		otherAddr, _ := address.NewAddressWithKeys()
+		commentRef := "comment"
+		gr := timeline.NewMockGraph(mockCtrl)
+
+		evf, evm := createMockFactoryAndManager(mockCtrl, ns)
+		evm.EXPECT().On(timeline.EventTypes.EventReferenced, gomock.Any()).Return(&event.Subscription{})
+
+		tl1, _ := timeline.NewTimeline(ns, addr, gr, evf, logger)
+
+		postKey := "postKey"
+		commentKey := "commentKey"
+		expectedPost := timeline.Post{
+			Base: timeline.Base{Type: timeline.TypePost, Connectors: []string{commentRef}},
+			Part: timeline.Part{MimeType: "plain/text", Body: "some text"},
+		}
+		postjson, _ := json.Marshal(expectedPost)
+
+		// Mock getting the post from another timeline
+		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{
+			Key:      postKey,
+			Address:  otherAddr.Address,
+			Data:     postjson,
+			Branches: []string{commentRef},
+		}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+
+		// Mock appending the comment
+		gr.EXPECT().Append(gomock.Any(), "", gomock.Any()).Return(graph.Node{Key: commentKey}, nil)
+
+		// Mock event emission
+		evm.EXPECT().Emit(timeline.EventTypes.EventReferenceAdded, gomock.Any()).Return(nil)
+
+		// Mock getting event manager for target timeline and emitting event
+		targetEvm := event.NewMockManager(mockCtrl)
+		evf.EXPECT().Build(addr, &address.Address{Address: otherAddr.Address}, gomock.Any()).Return(targetEvm, nil)
+		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).Return(nil)
+
+		comment := timeline.Comment{
+			Post: timeline.Post{
+				Part: timeline.Part{MimeType: "plain/text", Body: "comment text"},
+			},
+			Target:    postKey,
+			Connector: commentRef,
+		}
+		key, er := tl1.AddComment(ctx, comment, "", "main")
+
+		Expect(er).To(BeNil())
+		Expect(key).To(Equal(commentKey))
+	})
+
+	It("Should send event with Like type when adding a like", func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		defer mockCtrl.Finish()
+
+		otherAddr, _ := address.NewAddressWithKeys()
+		gr := timeline.NewMockGraph(mockCtrl)
+
+		evf, evm := createMockFactoryAndManager(mockCtrl, ns)
+		evm.EXPECT().On(timeline.EventTypes.EventReferenced, gomock.Any()).Return(&event.Subscription{})
+
+		tl1, _ := timeline.NewTimeline(ns, addr, gr, evf, logger)
+
+		postKey := "postKey"
+		likeKey := "likeKey"
+		expectedPost := timeline.Post{
+			Base: timeline.Base{Type: timeline.TypePost, Connectors: []string{likeRef}},
+			Part: timeline.Part{MimeType: "plain/text", Body: "some text"},
+		}
+		postjson, _ := json.Marshal(expectedPost)
+
+		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{
+			Key:      postKey,
+			Address:  otherAddr.Address,
+			Data:     postjson,
+			Branches: []string{likeRef},
+		}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+		gr.EXPECT().Append(gomock.Any(), "", gomock.Any()).Return(graph.Node{Key: likeKey}, nil)
+		evm.EXPECT().Emit(timeline.EventTypes.EventReferenceAdded, gomock.Any()).Return(nil)
+
+		// Mock getting event manager for target timeline
+		targetEvm := event.NewMockManager(mockCtrl)
+		evf.EXPECT().Build(addr, &address.Address{Address: otherAddr.Address}, gomock.Any()).Return(targetEvm, nil)
+
+		// Verify the event contains the Like type
+		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).DoAndReturn(
+			func(eventType string, data []byte) error {
+				var ev timeline.Event
+				er := json.Unmarshal(data, &ev)
+				Expect(er).To(BeNil())
+				Expect(ev.Type).To(Equal(timeline.EventTypes.EventReferenced))
+				Expect(ev.Id).To(Equal(likeKey))
+				Expect(ev.ReferenceType).To(Equal(timeline.TypeLike))
+				return nil
+			})
+
+		like := timeline.Like{Target: postKey, Connector: likeRef}
+		_, er := tl1.AddLike(ctx, like, "", "main")
+		Expect(er).To(BeNil())
+	})
+
+	It("Should send event with Comment type when adding a comment", func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		defer mockCtrl.Finish()
+
+		otherAddr, _ := address.NewAddressWithKeys()
+		commentRef := "comment"
+		gr := timeline.NewMockGraph(mockCtrl)
+
+		evf, evm := createMockFactoryAndManager(mockCtrl, ns)
+		evm.EXPECT().On(timeline.EventTypes.EventReferenced, gomock.Any()).Return(&event.Subscription{})
+
+		tl1, _ := timeline.NewTimeline(ns, addr, gr, evf, logger)
+
+		postKey := "postKey"
+		commentKey := "commentKey"
+		expectedPost := timeline.Post{
+			Base: timeline.Base{Type: timeline.TypePost, Connectors: []string{commentRef}},
+			Part: timeline.Part{MimeType: "plain/text", Body: "some text"},
+		}
+		postjson, _ := json.Marshal(expectedPost)
+
+		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{
+			Key:      postKey,
+			Address:  otherAddr.Address,
+			Data:     postjson,
+			Branches: []string{commentRef},
+		}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+		gr.EXPECT().Append(gomock.Any(), "", gomock.Any()).Return(graph.Node{Key: commentKey}, nil)
+		evm.EXPECT().Emit(timeline.EventTypes.EventReferenceAdded, gomock.Any()).Return(nil)
+
+		// Mock getting event manager for target timeline
+		targetEvm := event.NewMockManager(mockCtrl)
+		evf.EXPECT().Build(addr, &address.Address{Address: otherAddr.Address}, gomock.Any()).Return(targetEvm, nil)
+
+		// Verify the event contains the Comment type
+		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).DoAndReturn(
+			func(eventType string, data []byte) error {
+				var ev timeline.Event
+				er := json.Unmarshal(data, &ev)
+				Expect(er).To(BeNil())
+				Expect(ev.Type).To(Equal(timeline.EventTypes.EventReferenced))
+				Expect(ev.Id).To(Equal(commentKey))
+				Expect(ev.ReferenceType).To(Equal(timeline.TypeComment))
+				return nil
+			})
+
+		comment := timeline.Comment{
+			Post: timeline.Post{
+				Part: timeline.Part{MimeType: "plain/text", Body: "comment text"},
+			},
+			Target:    postKey,
+			Connector: commentRef,
+		}
+		_, er := tl1.AddComment(ctx, comment, "", "main")
+		Expect(er).To(BeNil())
+	})
+
 	It("Should NOT append reference to own reference", func() {
 		mockCtrl := gomock.NewController(GinkgoT())
 		defer mockCtrl.Finish()
