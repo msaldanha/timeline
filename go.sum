@@ -518,10 +518,8 @@ github.com/mr-tron/base58 v1.1.2/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjW
 github.com/mr-tron/base58 v1.1.3/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjWI2mNwc=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=
 github.com/mr-tron/base58 v1.2.0/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjWI2mNwc=
-github.com/msaldanha/setinstone v0.0.0-20250710182505-c6c49b0da4ed h1:ig7D4GA0WNb7L0FC8dXpWyCcEtauFHyhM9EnALMhDJo=
-github.com/msaldanha/setinstone v0.0.0-20250710182505-c6c49b0da4ed/go.mod h1:DG4egnXO5vgdCCe+LU0hFZm6RTMvSISATd2tzCfeEDY=
-github.com/msaldanha/setinstone v0.0.0-20250712212532-ac3aa2e6d4d0 h1:X77izYanaCy1PwwFifiyJEU6clpsUk2/2LhGEtZOXkg=
-github.com/msaldanha/setinstone v0.0.0-20250712212532-ac3aa2e6d4d0/go.mod h1:M0uuQxbMi+4SOFGymSn2ipmjEqk6L4LCFWg8xNmbGkk=
+github.com/msaldanha/setinstone v0.0.0-20251010152518-7960733f8b64 h1:TzkgkTv+F+WAIP81TnNv8kOvqtwNB803OmhNSd8QPmE=
+github.com/msaldanha/setinstone v0.0.0-20251010152518-7960733f8b64/go.mod h1:M0uuQxbMi+4SOFGymSn2ipmjEqk6L4LCFWg8xNmbGkk=
 github.com/multiformats/go-base32 v0.0.3/go.mod h1:pLiuGC8y0QR3Ue4Zug5UzK9LjgbkL8NSQj0zQ5Nz/AA=
 github.com/multiformats/go-base32 v0.1.0 h1:pVx9xoSPqEIQG8o+UbAe7DNi51oej1NtK+aGkbLYxPE=
 github.com/multiformats/go-base32 v0.1.0/go.mod h1:Kj3tFY6zNr+ABYMqeUNeGvkIC/UYgtWibDcT0rExnbI=

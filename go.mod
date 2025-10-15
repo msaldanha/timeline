@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/ipfs/kubo v0.34.1
-	github.com/msaldanha/setinstone v0.0.0-20250712212532-ac3aa2e6d4d0
+	github.com/msaldanha/setinstone v0.0.0-20251010152518-7960733f8b64
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
 	go.etcd.io/bbolt v1.4.2
