@@ -112,6 +112,45 @@ var _ = Describe("Timeline", func() {
 		Expect(receivedKey).To(Equal(referenceKey))
 	})
 
+	It("Should add a received comment", func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		defer mockCtrl.Finish()
+
+		evf, evm := createMockFactoryAndManager(mockCtrl, ns)
+		evm.EXPECT().On(timeline.EventTypes.EventReferenced, gomock.Any()).Return(&event.Subscription{})
+		gr := timeline.NewMockGraph(mockCtrl)
+
+		tl1, _ := timeline.NewTimeline(ns, addr, gr, evf, logger)
+
+		commentKey := "commentKey"
+		postKey := "postKey"
+		referenceKey := "refKey"
+		commentRef := "comment"
+		expectedPost := timeline.Post{
+			Base: timeline.Base{Type: timeline.TypePost, Connectors: []string{commentRef}},
+			Part: timeline.Part{MimeType: "plain/text", Body: "some text"},
+		}
+		postjson, _ := json.Marshal(expectedPost)
+		expectedComment := timeline.Comment{
+			Post: timeline.Post{
+				Base: timeline.Base{Type: timeline.TypeComment, Connectors: []string{commentRef}},
+				Part: timeline.Part{MimeType: "plain/text", Body: "comment text"},
+			},
+			Target:    postKey,
+			Connector: commentRef,
+		}
+		commentjson, _ := json.Marshal(expectedComment)
+		gr.EXPECT().Get(gomock.Any(), commentKey).Return(graph.Node{Key: commentKey, Data: commentjson, Branches: []string{commentRef}}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{Key: postKey, Address: addr.Address, Data: postjson, Branches: []string{commentRef}}, true, nil)
+		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
+		gr.EXPECT().Append(gomock.Any(), gomock.Any(), gomock.Any()).Return(graph.Node{Key: referenceKey}, nil)
+
+		receivedKey, er := tl1.AddReceivedComment(ctx, commentKey)
+		Expect(er).To(BeNil())
+		Expect(receivedKey).To(Equal(referenceKey))
+	})
+
 	It("Should NOT append reference to own reference", func() {
 		mockCtrl := gomock.NewController(GinkgoT())
 		defer mockCtrl.Finish()

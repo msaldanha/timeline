@@ -25,9 +25,11 @@ var EventTypes = EventTypesEnum{
 
 // Event is the canonical payload for timeline events.
 // Type identifies the kind of event (see EventTypes) and Id carries the related entity key.
+// ReferenceType distinguishes between "like" and "comment" references for EventReferenced events.
 type Event struct {
-	Type string `json:"type,omitempty"`
-	Id   string `json:"id,omitempty"`
+	Type          string `json:"type,omitempty"`
+	Id            string `json:"id,omitempty"`
+	ReferenceType string `json:"referenceType,omitempty"`
 }
 
 // Bytes returns a byte slice that uniquely represents the event

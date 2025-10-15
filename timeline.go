@@ -126,7 +126,7 @@ func (t *Timeline) AddLike(ctx context.Context, like Like, keyRoot, connector st
 		return "", t.translateError(er)
 	}
 	t.broadcast(EventTypes.EventReferenceAdded, i.Key)
-	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key)
+	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key, TypeLike)
 	return i.Key, nil
 }
 
@@ -233,7 +233,7 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, con
 		return "", t.translateError(er)
 	}
 	t.broadcast(EventTypes.EventReferenceAdded, i.Key)
-	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key)
+	t.sendEventToTimeline(itemFromOtherTimeline.Address, EventTypes.EventReferenced, i.Key, TypeComment)
 	return i.Key, nil
 }
 
@@ -365,10 +365,25 @@ func (t *Timeline) translateError(er error) error {
 func (t *Timeline) refAddedHandler(ev event.Event) {
 	v, er := t.extractEvent(ev)
 	if er != nil {
+		t.logger.Error("Failed to extract event", zap.Error(er))
 		return
 	}
-	t.logger.Info("Received reference", zap.String("type", v.Type), zap.String("id", v.Id))
-	_, _ = t.AddReceivedLike(context.Background(), v.Id)
+	t.logger.Info("Received reference", zap.String("type", v.Type), zap.String("id", v.Id), zap.String("referenceType", v.ReferenceType))
+
+	switch v.ReferenceType {
+	case TypeLike:
+		_, er = t.AddReceivedLike(context.Background(), v.Id)
+		if er != nil {
+			t.logger.Error("Failed to add received like", zap.String("id", v.Id), zap.Error(er))
+		}
+	case TypeComment:
+		_, er = t.AddReceivedComment(context.Background(), v.Id)
+		if er != nil {
+			t.logger.Error("Failed to add received comment", zap.String("id", v.Id), zap.Error(er))
+		}
+	default:
+		t.logger.Warn("Unknown reference type", zap.String("referenceType", v.ReferenceType), zap.String("id", v.Id))
+	}
 }
 
 func (t *Timeline) broadcast(eventType, eventValue string) {
@@ -379,15 +394,16 @@ func (t *Timeline) broadcast(eventType, eventValue string) {
 	_ = t.evm.Emit(eventType, ev.ToJson())
 }
 
-func (t *Timeline) sendEventToTimeline(addr, eventType, eventValue string) {
+func (t *Timeline) sendEventToTimeline(addr, eventType, eventValue, referenceType string) {
 	evm, er := t.getEvmForTimeline(addr)
 	if er != nil {
 		t.logger.Error("Unable to get event manager", zap.String("addr", addr), zap.Error(er))
 		return
 	}
 	ev := Event{
-		Type: eventType,
-		Id:   eventValue,
+		Type:          eventType,
+		Id:            eventValue,
+		ReferenceType: referenceType,
 	}
 	_ = evm.Emit(eventType, ev.ToJson())
 }
