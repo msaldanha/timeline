@@ -197,6 +197,9 @@ func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) 
 	return i.Key, nil
 }
 
+// AddComment adds a comment reference to an item from another timeline and broadcasts events.
+// It takes a context, the comment to add, a root key, and a connector name.
+// Returns the key of the added reference and an error if the operation fails.
 func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, connector string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
@@ -234,6 +237,9 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, con
 	return i.Key, nil
 }
 
+// AddReceivedComment processes a comment reference received from another timeline.
+// It validates the reference and records a ReceivedComment linked to the origin entry.
+// Returns the key of the processed reference and an error if the operation fails.
 func (t *Timeline) AddReceivedComment(ctx context.Context, receivedCommentKey string) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {

@@ -7,6 +7,9 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+// DaoIterator defines a minimal reverse-chronological iterator over Items
+// stored by CompositeDao. First returns the newest available item from the
+// starting position, and Next moves toward older items (reverse order).
 type DaoIterator interface {
 	First() (*Item, error)
 	Last() (*Item, error)
@@ -20,6 +23,8 @@ type DaoIteratorImpl struct {
 	dao     *CompositeDao
 }
 
+// NewDaoIterator creates an iterator positioned just before the item referenced by keyFrom.
+// If keyFrom is empty or not found, the iterator starts from the newest item.
 func NewDaoIterator(dao *CompositeDao, keyFrom string) (*DaoIteratorImpl, error) {
 	c := &DaoIteratorImpl{dao: dao}
 	er := dao.db.View(func(tx *bolt.Tx) error {
