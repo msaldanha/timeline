@@ -77,6 +77,7 @@ func (t *Timeline) AddPost(ctx context.Context, post Post, keyRoot, connector st
 		return "", er
 	}
 	post.Type = TypePost
+	post.Connectors = []string{ConnectorLike, ConnectorComment}
 	js, er := json.Marshal(post)
 	if er != nil {
 		return "", t.translateError(er)
@@ -93,12 +94,14 @@ func (t *Timeline) AddPost(ctx context.Context, post Post, keyRoot, connector st
 // It also sends a referenced event to the target timeline.
 // It takes a context, the like to add, a root key, and a connector string.
 // Returns the key of the added reference and an error if the operation fails.
-func (t *Timeline) AddLike(ctx context.Context, like Like, keyRoot, connector string) (string, error) {
+func (t *Timeline) AddLike(ctx context.Context, like Like) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
 	}
 	like.Type = TypeLike
+	like.Connector = ConnectorMain
+	like.Connectors = []string{}
 	itemFromOtherTimeline, _, er := t.Get(ctx, like.Target)
 	if er != nil {
 		return "", er
@@ -113,7 +116,7 @@ func (t *Timeline) AddLike(ctx context.Context, like Like, keyRoot, connector st
 		return "", ErrCannotRefOwnItem
 	}
 
-	if !t.canReceiveReference(itemFromOtherTimeline, like.Connector) {
+	if !t.canReceiveReference(itemFromOtherTimeline, ConnectorLike) {
 		return "", ErrCannotAddReference
 	}
 
@@ -121,7 +124,7 @@ func (t *Timeline) AddLike(ctx context.Context, like Like, keyRoot, connector st
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, keyRoot, graph.NodeData{Branch: connector, Data: js})
+	i, er := t.gr.Append(ctx, "", graph.NodeData{Branch: ConnectorMain, Branches: []string{}, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -174,23 +177,24 @@ func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) 
 		return "", ErrCannotAddRefToNotOwnedItem
 	}
 
-	if !t.canReceiveReference(itemFromThisTimeline, receivedLike.Connector) {
+	if !t.canReceiveReference(itemFromThisTimeline, ConnectorLike) {
 		return "", ErrCannotAddReference
 	}
 
 	li := ReceivedLike{
 		Target:    itemFromThisTimeline.Key,
 		Origin:    itemFromOtherTimeline.Key,
-		Connector: receivedLike.Connector,
+		Connector: ConnectorLike,
 		Base: Base{
-			Type: TypeReceivedLike,
+			Connectors: []string{},
+			Type:       TypeReceivedLike,
 		},
 	}
 	js, er := json.Marshal(li)
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, itemFromOtherTimeline.Key, graph.NodeData{Branch: receivedLike.Connector, Data: js})
+	i, er := t.gr.Append(ctx, itemFromThisTimeline.Key, graph.NodeData{Branch: ConnectorLike, Branches: []string{}, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -200,12 +204,14 @@ func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) 
 // AddComment adds a comment reference to an item from another timeline and broadcasts events.
 // It takes a context, the comment to add, a root key, and a connector name.
 // Returns the key of the added reference and an error if the operation fails.
-func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, connector string) (string, error) {
+func (t *Timeline) AddComment(ctx context.Context, comment Comment) (string, error) {
 	er := t.checkCanWrite()
 	if er != nil {
 		return "", er
 	}
 	comment.Type = TypeComment
+	comment.Connector = ConnectorMain
+	comment.Connectors = []string{ConnectorComment, ConnectorLike}
 	itemFromOtherTimeline, _, er := t.Get(ctx, comment.Target)
 	if er != nil {
 		return "", er
@@ -220,7 +226,7 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, con
 		return "", ErrCannotRefOwnItem
 	}
 
-	if !t.canReceiveReference(itemFromOtherTimeline, comment.Connector) {
+	if !t.canReceiveReference(itemFromOtherTimeline, ConnectorComment) {
 		return "", ErrCannotAddReference
 	}
 
@@ -228,7 +234,7 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment, keyRoot, con
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, keyRoot, graph.NodeData{Branch: connector, Data: js})
+	i, er := t.gr.Append(ctx, "", graph.NodeData{Branch: ConnectorMain, Branches: comment.Connectors, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -280,23 +286,24 @@ func (t *Timeline) AddReceivedComment(ctx context.Context, receivedCommentKey st
 		return "", ErrCannotAddRefToNotOwnedItem
 	}
 
-	if !t.canReceiveReference(itemFromThisTimeline, receivedComment.Connector) {
+	if !t.canReceiveReference(itemFromThisTimeline, ConnectorComment) {
 		return "", ErrCannotAddReference
 	}
-
+	branches := []string{ConnectorComment, ConnectorLike}
 	li := ReceivedComment{
 		Target:    itemFromThisTimeline.Key,
 		Origin:    itemFromOtherTimeline.Key,
-		Connector: receivedComment.Connector,
+		Connector: ConnectorComment,
 		Base: Base{
-			Type: TypeReceivedComment,
+			Type:       TypeReceivedComment,
+			Connectors: branches,
 		},
 	}
 	js, er := json.Marshal(li)
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, itemFromOtherTimeline.Key, graph.NodeData{Branch: receivedComment.Connector, Data: js})
+	i, er := t.gr.Append(ctx, itemFromThisTimeline.Key, graph.NodeData{Branch: ConnectorComment, Branches: branches, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -323,21 +330,83 @@ func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 // Returns a slice of items and an error if the retrieval fails.
 // If count is less than or equal to 0, an empty slice is returned.
 func (t *Timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
+	var items = make([]Item, 0)
+	er := t.getFrom(ctx, keyRoot, connector, keyFrom, keyTo, count, true, func(item Item) {
+		items = append(items, item)
+	})
+	return items, er
+}
+
+// GetLikes returns like entries connected to the given root item key.
+// It traverses the like connector starting at key and returns up to count items
+// between keyFrom and keyTo (inclusive), in the order provided by the underlying graph iterator.
+func (t *Timeline) GetLikes(ctx context.Context, key, keyFrom, keyTo string, count int) ([]Item, error) {
+	var items = make([]Item, 0)
+	er := t.getFrom(ctx, key, ConnectorLike, keyFrom, keyTo, count, false, func(item Item) {
+		items = append(items, item)
+	})
+	if er != nil {
+		return items, er
+	}
+	return items, er
+}
+
+// GetComments returns comment entries connected to the given root item key.
+// It traverses the comment connector starting at key and returns up to count items
+// between keyFrom and keyTo (inclusive), in the order provided by the underlying graph iterator.
+func (t *Timeline) GetComments(ctx context.Context, key, keyFrom, keyTo string, count int) ([]Item, error) {
+	var items = make([]Item, 0)
+	er := t.getFrom(ctx, key, ConnectorComment, keyFrom, keyTo, count, false, func(item Item) {
+		switch entry := item.Entry.(type) {
+		case ReceivedComment:
+			// received comment is a reference to a comment, need to get the comment
+			comment, found, er := t.Get(ctx, entry.Origin)
+			if er != nil || !found {
+				item.Entry = Comment{
+					Target:    entry.Target,
+					Connector: entry.Connector,
+					Post: Post{
+						Part: Part{
+							Body: "Unable to get comment",
+						},
+					},
+				}
+			} else {
+				item.Entry = comment.Entry
+			}
+		default:
+			return
+		}
+		items = append(items, item)
+	})
+	if er != nil {
+		return items, er
+	}
+	return items, er
+}
+
+func (t *Timeline) getFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int, includeRootNode bool,
+	callback func(item Item)) error {
+	if callback == nil {
+		return nil
+	}
 	it := t.gr.GetIterator(ctx, keyRoot, connector, keyFrom)
 	i := 0
-	var items = make([]Item, 0)
 	for v := range it.All() {
 		item, er := NewItemFromGraphNode(*v)
 		if er != nil {
-			return nil, t.translateError(er)
+			return t.translateError(er)
 		}
-		items = append(items, item)
+		if !includeRootNode && item.Key == keyRoot {
+			break
+		}
+		callback(item)
 		i++
 		if v.Key == keyTo || i >= count {
 			break
 		}
 	}
-	return items, nil
+	return nil
 }
 
 func (t *Timeline) canReceiveReference(item Item, con string) bool {

@@ -7,6 +7,9 @@ import (
 )
 
 const (
+	ConnectorMain       = "main"
+	ConnectorLike       = "like"
+	ConnectorComment    = "comment"
 	TypePost            = "Post"
 	TypeReference       = "Reference"
 	TypeLike            = "Like"

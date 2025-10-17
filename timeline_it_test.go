@@ -192,7 +192,7 @@ var _ = Describe("Timeline", func() {
 		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).Return(nil)
 
 		like := timeline.Like{Target: postKey, Connector: likeRef}
-		key, er := tl1.AddLike(ctx, like, "", "main")
+		key, er := tl1.AddLike(ctx, like)
 
 		Expect(er).To(BeNil())
 		Expect(key).To(Equal(likeKey))
@@ -246,7 +246,7 @@ var _ = Describe("Timeline", func() {
 			Target:    postKey,
 			Connector: commentRef,
 		}
-		key, er := tl1.AddComment(ctx, comment, "", "main")
+		key, er := tl1.AddComment(ctx, comment)
 
 		Expect(er).To(BeNil())
 		Expect(key).To(Equal(commentKey))
@@ -299,7 +299,7 @@ var _ = Describe("Timeline", func() {
 			})
 
 		like := timeline.Like{Target: postKey, Connector: likeRef}
-		_, er := tl1.AddLike(ctx, like, "", "main")
+		_, er := tl1.AddLike(ctx, like)
 		Expect(er).To(BeNil())
 	})
 
@@ -357,7 +357,7 @@ var _ = Describe("Timeline", func() {
 			Target:    postKey,
 			Connector: commentRef,
 		}
-		_, er := tl1.AddComment(ctx, comment, "", "main")
+		_, er := tl1.AddComment(ctx, comment)
 		Expect(er).To(BeNil())
 	})
 
@@ -381,7 +381,7 @@ var _ = Describe("Timeline", func() {
 		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{Key: postKey, Address: addr.Address, Data: postjson, Branches: []string{likeRef}}, true, nil)
 		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
 		expectedLike := timeline.Like{Target: postKey, Connector: "connector"}
-		key, er := p.AddLike(ctx, expectedLike, "", "main")
+		key, er := p.AddLike(ctx, expectedLike)
 		Expect(er).To(Equal(timeline.ErrCannotRefOwnItem))
 		Expect(key).To(Equal(""))
 
@@ -406,7 +406,7 @@ var _ = Describe("Timeline", func() {
 		likejson, _ := json.Marshal(expectedLike)
 		gr.EXPECT().Get(gomock.Any(), likeKey).Return(graph.Node{Key: likeKey, Address: addr.Address, Data: likejson, Branches: []string{likeRef}}, true, nil)
 		like := timeline.Like{Target: likeKey, Connector: "connector"}
-		key, er := p.AddLike(ctx, like, "", "main")
+		key, er := p.AddLike(ctx, like)
 		Expect(er).To(Equal(timeline.ErrCannotRefARef))
 		Expect(key).To(Equal(""))
 
