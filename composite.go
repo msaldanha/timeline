@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ipfs/kubo/core"
 	bolt "go.etcd.io/bbolt"
@@ -134,19 +135,19 @@ func (ct *CompositeTimeline) Run() error {
 
 	ct.runOnce.Do(func() {
 		ct.isRunning.Store(true)
-		// go func() {
-		// 	tk := time.NewTicker(time.Second * 10)
-		// 	defer tk.Stop()
-		// 	defer ct.isRunning.Store(false)
-		// 	for {
-		// 		select {
-		// 		case <-tk.C:
-		// 			ct.Refresh()
-		// 		case <-ct.ctx.Done():
-		// 			break
-		// 		}
-		// 	}
-		// }()
+		go func() {
+			tk := time.NewTicker(time.Second * 10)
+			defer tk.Stop()
+			defer ct.isRunning.Store(false)
+			for {
+				select {
+				case <-tk.C:
+					ct.Refresh()
+				case <-ct.ctx.Done():
+					break
+				}
+			}
+		}()
 	})
 	return nil
 }
