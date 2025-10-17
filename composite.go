@@ -3,6 +3,7 @@ package timeline
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,7 +30,19 @@ const (
 	// Other string constants
 	emptyString = ""
 	mainBranch  = "main"
+
+	tickerMaxInterval = 1 * time.Minute
+	tickerMinInterval = 30 * time.Second
 )
+
+// getRandInt64 returns a random int64 value between min and max (inclusive)
+func getRandInt64(min, max int64) int64 {
+	if min > max {
+		min, max = max, min
+	}
+	// Add 1 to make max inclusive
+	return min + rand.Int63n(max-min+1)
+}
 
 var (
 	ErrNotInitialized = errors.New("not initialized")
@@ -136,7 +149,9 @@ func (ct *CompositeTimeline) Run() error {
 	ct.runOnce.Do(func() {
 		ct.isRunning.Store(true)
 		go func() {
-			tk := time.NewTicker(time.Second * 10)
+			interval := time.Duration(getRandInt64(int64(tickerMinInterval), int64(tickerMaxInterval)))
+			ct.logger.Debug("Starting background refresh process", zap.Duration("interval", interval))
+			tk := time.NewTicker(interval)
 			defer tk.Stop()
 			defer ct.isRunning.Store(false)
 			for {
