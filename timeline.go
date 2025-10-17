@@ -357,26 +357,6 @@ func (t *Timeline) GetLikes(ctx context.Context, key, keyFrom, keyTo string, cou
 func (t *Timeline) GetComments(ctx context.Context, key, keyFrom, keyTo string, count int) ([]Item, error) {
 	var items = make([]Item, 0)
 	er := t.getFrom(ctx, key, ConnectorComment, keyFrom, keyTo, count, false, func(item Item) {
-		switch entry := item.Entry.(type) {
-		case ReceivedComment:
-			// received comment is a reference to a comment, need to get the comment
-			comment, found, er := t.Get(ctx, entry.Origin)
-			if er != nil || !found {
-				item.Entry = Comment{
-					Target:    entry.Target,
-					Connector: entry.Connector,
-					Post: Post{
-						Part: Part{
-							Body: "Unable to get comment",
-						},
-					},
-				}
-			} else {
-				item.Entry = comment.Entry
-			}
-		default:
-			return
-		}
 		items = append(items, item)
 	})
 	if er != nil {
