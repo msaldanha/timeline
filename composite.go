@@ -3,10 +3,8 @@ package timeline
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/ipfs/kubo/core"
 	bolt "go.etcd.io/bbolt"
@@ -30,19 +28,7 @@ const (
 	// Other string constants
 	emptyString = ""
 	mainBranch  = "main"
-
-	tickerMaxInterval = 1 * time.Minute
-	tickerMinInterval = 30 * time.Second
 )
-
-// getRandInt64 returns a random int64 value between min and max (inclusive)
-func getRandInt64(min, max int64) int64 {
-	if min > max {
-		min, max = max, min
-	}
-	// Add 1 to make max inclusive
-	return min + rand.Int63n(max-min+1)
-}
 
 var (
 	ErrNotInitialized = errors.New("not initialized")
@@ -52,23 +38,19 @@ var (
 // It provides functionality to load, add, and remove timelines, as well as to retrieve and manipulate
 // timeline items.
 type CompositeTimeline struct {
-	watchers         map[string]*Watcher
-	mtx              *sync.Mutex
-	initialized      bool
-	node             *core.IpfsNode
-	evm              event.Manager
-	evmf             event.ManagerFactory
-	ns               string
-	logger           *zap.Logger
-	owner            string
-	dao              Dao
-	runOnce          sync.Once
-	stopOnce         sync.Once
-	initOnce         sync.Once
-	initErr          error
-	isRunning        atomic.Bool
-	ctx              context.Context
-	cancelRunCtxFunc context.CancelFunc
+	watchers    map[string]*Watcher
+	mtx         *sync.Mutex
+	initialized bool
+	node        *core.IpfsNode
+	evm         event.Manager
+	evmf        event.ManagerFactory
+	ns          string
+	logger      *zap.Logger
+	owner       string
+	dao         Dao
+	initOnce    sync.Once
+	initErr     error
+	isRunning   atomic.Bool
 }
 
 // NewCompositeTimeline creates a new CompositeTimeline instance.
@@ -80,24 +62,19 @@ func NewCompositeTimeline(ns string, node *core.IpfsNode, evmf event.ManagerFact
 	}
 
 	logger = logger.Named(loggerNameCompositeTimeline).With(zap.String(loggerFieldNamespace, ns), zap.String(loggerFieldOwner, owner))
-	ctx, cancel := context.WithCancel(context.Background())
 	return &CompositeTimeline{
-		watchers:         make(map[string]*Watcher),
-		mtx:              new(sync.Mutex),
-		initialized:      false,
-		node:             node,
-		ns:               ns,
-		evmf:             evmf,
-		logger:           logger,
-		owner:            owner,
-		dao:              dao,
-		runOnce:          sync.Once{},
-		stopOnce:         sync.Once{},
-		initOnce:         sync.Once{},
-		initErr:          nil,
-		isRunning:        atomic.Bool{},
-		ctx:              ctx,
-		cancelRunCtxFunc: cancel,
+		watchers:    make(map[string]*Watcher),
+		mtx:         new(sync.Mutex),
+		initialized: false,
+		node:        node,
+		ns:          ns,
+		evmf:        evmf,
+		logger:      logger,
+		owner:       owner,
+		dao:         dao,
+		initOnce:    sync.Once{},
+		initErr:     nil,
+		isRunning:   atomic.Bool{},
 	}, nil
 }
 
@@ -118,12 +95,11 @@ func (ct *CompositeTimeline) Init() error {
 
 // Refresh updates the composite timeline by loading more items from the underlying timelines.
 // It returns an error if the CompositeTimeline is not initialized or if loading more items fails.
-func (ct *CompositeTimeline) Refresh() error {
+func (ct *CompositeTimeline) Refresh() (int, error) {
 	if !ct.initialized {
-		return ErrNotInitialized
+		return 0, ErrNotInitialized
 	}
-	_, er := ct.loadMore(defaultCount, true)
-	return er
+	return ct.loadMore(defaultCount, true)
 }
 
 // Rebuild reconstructs the composite timeline by loading items from the underlying timelines.
@@ -135,53 +111,6 @@ func (ct *CompositeTimeline) Rebuild() error {
 	}
 	_, er := ct.loadMore(defaultCount, false)
 	return er
-}
-
-// Run starts a background process that periodically refreshes the composite timeline.
-// The refresh happens every 10 seconds until Stop is called.
-// Returns an error if the CompositeTimeline is not initialized.
-// This method is idempotent and will only start the background process once.
-func (ct *CompositeTimeline) Run() error {
-	if !ct.initialized {
-		return ErrNotInitialized
-	}
-
-	ct.runOnce.Do(func() {
-		ct.isRunning.Store(true)
-		go func() {
-			interval := time.Duration(getRandInt64(int64(tickerMinInterval), int64(tickerMaxInterval)))
-			ct.logger.Debug("Starting background refresh process", zap.Duration("interval", interval))
-			tk := time.NewTicker(interval)
-			defer tk.Stop()
-			defer ct.isRunning.Store(false)
-			for {
-				select {
-				case <-tk.C:
-					ct.Refresh()
-				case <-ct.ctx.Done():
-					break
-				}
-			}
-		}()
-	})
-	return nil
-}
-
-// Stop halts the background refresh process started by Run.
-// Returns an error if the CompositeTimeline is not initialized.
-// This method is idempotent and will only stop the background process once.
-// If the background process is not running, this method does nothing and returns nil.
-func (ct *CompositeTimeline) Stop() error {
-	if !ct.initialized {
-		return ErrNotInitialized
-	}
-	if !ct.isRunning.Load() {
-		return nil
-	}
-	ct.stopOnce.Do(func() {
-		ct.cancelRunCtxFunc()
-	})
-	return nil
 }
 
 // AddTimeline adds an existing timeline to the composite timeline.
@@ -301,7 +230,8 @@ func (ct *CompositeTimeline) createTimelineBuckets(tx *bolt.Tx) error {
 	return nil
 }
 
-func (ct *CompositeTimeline) loadMore(count int, getOlder bool) ([]Item, error) {
+func (ct *CompositeTimeline) loadMore(count int, getOlder bool) (int, error) {
+	var total int = 0
 	watchers := make(map[string]*Watcher)
 	ct.criticalSession(func() {
 		for k, w := range ct.watchers {
@@ -312,7 +242,6 @@ func (ct *CompositeTimeline) loadMore(count int, getOlder bool) ([]Item, error) 
 	if defaultCount > totalToRetrieve {
 		totalToRetrieve = defaultCount
 	}
-	allItems := make([]Item, 0, len(watchers)*defaultCount)
 	for k, w := range watchers {
 		tl := w.GetTimeline()
 		tlLastKey := emptyString
@@ -321,23 +250,24 @@ func (ct *CompositeTimeline) loadMore(count int, getOlder bool) ([]Item, error) 
 		}
 		items, err := tl.GetFrom(context.Background(), emptyString, mainBranch, emptyString, tlLastKey, totalToRetrieve)
 		if err != nil {
-			return nil, err
+			return total, err
 		}
 		for _, item := range items {
 			_, found, er := ct.Get(context.Background(), item.Key)
 			if er != nil {
-				return nil, er
+				return total, er
 			}
 			if found {
 				continue
 			}
-			allItems = append(allItems, item)
+			er = ct.Save(item)
+			if er != nil {
+				return total, er
+			}
+			total++
 		}
 	}
-	for _, item := range allItems {
-		_ = ct.Save(item)
-	}
-	return allItems, nil
+	return total, nil
 }
 
 func (ct *CompositeTimeline) readFrom(keyFrom string, count int) ([]Item, error) {
