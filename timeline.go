@@ -99,7 +99,6 @@ func (t *Timeline) AddLike(ctx context.Context, like Like) (string, error) {
 		return "", er
 	}
 	like.Type = TypeLike
-	like.Connector = ConnectorMain
 	itemFromOtherTimeline, _, er := t.Get(ctx, like.Target)
 	if er != nil {
 		return "", er
@@ -180,9 +179,8 @@ func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) 
 	}
 
 	li := ReceivedLike{
-		Target:    itemFromThisTimeline.Key,
-		Origin:    itemFromOtherTimeline.Key,
-		Connector: ConnectorLike,
+		Target: itemFromThisTimeline.Key,
+		Origin: itemFromOtherTimeline.Key,
 		Base: Base{
 			Type: TypeReceivedLike,
 		},

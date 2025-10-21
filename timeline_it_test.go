@@ -99,7 +99,7 @@ var _ = Describe("Timeline", func() {
 		postjson, _ := json.Marshal(expectedPost)
 		expectedLike := timeline.Like{
 			Base:   timeline.Base{Type: timeline.TypeLike},
-			Target: postKey, Connector: likeRef}
+			Target: postKey}
 		likejson, _ := json.Marshal(expectedLike)
 		gr.EXPECT().Get(gomock.Any(), likeKey).Return(graph.Node{Key: likeKey, Data: likejson, Branches: []string{likeRef}}, true, nil)
 		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
@@ -190,7 +190,7 @@ var _ = Describe("Timeline", func() {
 		evf.EXPECT().Build(addr, &address.Address{Address: otherAddr.Address}, gomock.Any()).Return(targetEvm, nil)
 		targetEvm.EXPECT().Emit(timeline.EventTypes.EventReferenced, gomock.Any()).Return(nil)
 
-		like := timeline.Like{Target: postKey, Connector: likeRef}
+		like := timeline.Like{Target: postKey}
 		key, er := tl1.AddLike(ctx, like)
 
 		Expect(er).To(BeNil())
@@ -296,7 +296,7 @@ var _ = Describe("Timeline", func() {
 				return nil
 			})
 
-		like := timeline.Like{Target: postKey, Connector: likeRef}
+		like := timeline.Like{Target: postKey}
 		_, er := tl1.AddLike(ctx, like)
 		Expect(er).To(BeNil())
 	})
@@ -377,7 +377,7 @@ var _ = Describe("Timeline", func() {
 		postjson, _ := json.Marshal(expectedPost)
 		gr.EXPECT().Get(gomock.Any(), postKey).Return(graph.Node{Key: postKey, Address: addr.Address, Data: postjson, Branches: []string{likeRef}}, true, nil)
 		gr.EXPECT().GetAddress(gomock.Any()).Return(addr)
-		expectedLike := timeline.Like{Target: postKey, Connector: "connector"}
+		expectedLike := timeline.Like{Target: postKey}
 		key, er := p.AddLike(ctx, expectedLike)
 		Expect(er).To(Equal(timeline.ErrCannotRefOwnItem))
 		Expect(key).To(Equal(""))
@@ -399,10 +399,10 @@ var _ = Describe("Timeline", func() {
 		likeKey := "likeKey"
 		expectedLike := timeline.Like{
 			Base:   timeline.Base{Type: timeline.TypeLike},
-			Target: postKey, Connector: likeRef}
+			Target: postKey}
 		likejson, _ := json.Marshal(expectedLike)
 		gr.EXPECT().Get(gomock.Any(), likeKey).Return(graph.Node{Key: likeKey, Address: addr.Address, Data: likejson, Branches: []string{likeRef}}, true, nil)
-		like := timeline.Like{Target: likeKey, Connector: "connector"}
+		like := timeline.Like{Target: likeKey}
 		key, er := p.AddLike(ctx, like)
 		Expect(er).To(Equal(timeline.ErrCannotRefARef))
 		Expect(key).To(Equal(""))

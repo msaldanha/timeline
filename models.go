@@ -54,15 +54,13 @@ type Post struct {
 
 type Like struct {
 	Base
-	Connector string `json:"connector,omitempty"`
-	Target    string `json:"target,omitempty"`
+	Target string `json:"target,omitempty"`
 }
 
 type ReceivedLike struct {
 	Base
-	Connector string `json:"connector,omitempty"`
-	Origin    string `json:"origin,omitempty"`
-	Target    string `json:"target,omitempty"`
+	Origin string `json:"origin,omitempty"`
+	Target string `json:"target,omitempty"`
 }
 
 type Comment struct {
