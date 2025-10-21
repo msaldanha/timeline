@@ -77,12 +77,11 @@ func (t *Timeline) AddPost(ctx context.Context, post Post, keyRoot, connector st
 		return "", er
 	}
 	post.Type = TypePost
-	post.Connectors = []string{ConnectorLike, ConnectorComment}
 	js, er := json.Marshal(post)
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, keyRoot, graph.NodeData{Branch: connector, Branches: post.Connectors, Data: js})
+	i, er := t.gr.Append(ctx, keyRoot, graph.NodeData{Branch: connector, Branches: []string{ConnectorLike, ConnectorComment}, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -101,7 +100,6 @@ func (t *Timeline) AddLike(ctx context.Context, like Like) (string, error) {
 	}
 	like.Type = TypeLike
 	like.Connector = ConnectorMain
-	like.Connectors = []string{}
 	itemFromOtherTimeline, _, er := t.Get(ctx, like.Target)
 	if er != nil {
 		return "", er
@@ -186,8 +184,7 @@ func (t *Timeline) AddReceivedLike(ctx context.Context, receivedLikeKey string) 
 		Origin:    itemFromOtherTimeline.Key,
 		Connector: ConnectorLike,
 		Base: Base{
-			Connectors: []string{},
-			Type:       TypeReceivedLike,
+			Type: TypeReceivedLike,
 		},
 	}
 	js, er := json.Marshal(li)
@@ -210,8 +207,6 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment) (string, err
 		return "", er
 	}
 	comment.Type = TypeComment
-	comment.Connector = ConnectorMain
-	comment.Connectors = []string{ConnectorComment, ConnectorLike}
 	itemFromOtherTimeline, _, er := t.Get(ctx, comment.Target)
 	if er != nil {
 		return "", er
@@ -234,7 +229,7 @@ func (t *Timeline) AddComment(ctx context.Context, comment Comment) (string, err
 	if er != nil {
 		return "", t.translateError(er)
 	}
-	i, er := t.gr.Append(ctx, "", graph.NodeData{Branch: ConnectorMain, Branches: comment.Connectors, Data: js})
+	i, er := t.gr.Append(ctx, "", graph.NodeData{Branch: ConnectorMain, Branches: []string{ConnectorComment, ConnectorLike}, Data: js})
 	if er != nil {
 		return "", t.translateError(er)
 	}
@@ -291,12 +286,10 @@ func (t *Timeline) AddReceivedComment(ctx context.Context, receivedCommentKey st
 	}
 	branches := []string{ConnectorComment, ConnectorLike}
 	li := ReceivedComment{
-		Target:    itemFromThisTimeline.Key,
-		Origin:    itemFromOtherTimeline.Key,
-		Connector: ConnectorComment,
+		Target: itemFromThisTimeline.Key,
+		Origin: itemFromOtherTimeline.Key,
 		Base: Base{
-			Type:       TypeReceivedComment,
-			Connectors: branches,
+			Type: TypeReceivedComment,
 		},
 	}
 	js, er := json.Marshal(li)
@@ -326,12 +319,12 @@ func (t *Timeline) Get(ctx context.Context, key string) (Item, bool, error) {
 }
 
 // GetFrom retrieves multiple items from the timeline starting from a specific key.
-// It takes a context, a root key, a connector string, a starting key, an ending key, and the maximum number of items to retrieve.
+// It takes a context, a root key, a starting key, an ending key, and the maximum number of items to retrieve.
 // Returns a slice of items and an error if the retrieval fails.
 // If count is less than or equal to 0, an empty slice is returned.
-func (t *Timeline) GetFrom(ctx context.Context, keyRoot, connector, keyFrom, keyTo string, count int) ([]Item, error) {
+func (t *Timeline) GetFrom(ctx context.Context, keyRoot, keyFrom, keyTo string, count int) ([]Item, error) {
 	var items = make([]Item, 0)
-	er := t.getFrom(ctx, keyRoot, connector, keyFrom, keyTo, count, true, func(item Item) {
+	er := t.getFrom(ctx, keyRoot, ConnectorMain, keyFrom, keyTo, count, true, func(item Item) {
 		items = append(items, item)
 	})
 	return items, er
@@ -391,7 +384,7 @@ func (t *Timeline) getFrom(ctx context.Context, keyRoot, connector, keyFrom, key
 
 func (t *Timeline) canReceiveReference(item Item, con string) bool {
 	found := false
-	for _, connector := range item.Branches {
+	for _, connector := range item.GetAllowedReferences() {
 		if connector == con {
 			found = true
 			break

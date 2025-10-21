@@ -23,8 +23,7 @@ const (
 // Base is the common structure for timeline items.
 // It defines the type of the item and the connectors it can use.
 type Base struct {
-	Type       string   `json:"type,omitempty"`
-	Connectors []string `json:"connectors,omitempty"`
+	Type string `json:"type,omitempty"`
 }
 
 // Part represents a piece of content with metadata.
@@ -68,26 +67,28 @@ type ReceivedLike struct {
 
 type Comment struct {
 	Post
-	Connector string `json:"connector,omitempty"`
-	Target    string `json:"target,omitempty"`
+	Target string `json:"target,omitempty"`
 }
 
 type ReceivedComment struct {
 	Base
-	Connector string `json:"connector,omitempty"`
-	Origin    string `json:"origin,omitempty"`
-	Target    string `json:"target,omitempty"`
+	Origin string `json:"origin,omitempty"`
+	Target string `json:"target,omitempty"`
 }
 
 // Item represents an entry in a timeline, which can be either a Post or a Reference.
 // It extends graph.Node and includes either a Post or a Reference.
 type Item struct {
-	Key       string   `json:"key,omitempty"`
-	Seq       int32    `json:"seq,omitempty"`
-	Timestamp string   `json:"timestamp,omitempty"`
-	Address   string   `json:"address,omitempty"`
-	Branches  []string `json:"branches,omitempty"`
-	Entry     any      `json:"entry,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Seq       int32  `json:"seq,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Address   string `json:"address,omitempty"`
+	branches  []string
+	Entry     any `json:"entry,omitempty"`
+}
+
+func (i *Item) GetAllowedReferences() []string {
+	return i.branches
 }
 
 // NewItemFromGraphNode creates an Item from a graph.Node.
@@ -105,7 +106,7 @@ func NewItemFromGraphNode(v graph.Node) (Item, error) {
 		Seq:       v.Seq,
 		Timestamp: v.Timestamp,
 		Address:   v.Address,
-		Branches:  v.Branches,
+		branches:  v.Branches,
 	}
 
 	switch base.Type {

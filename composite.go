@@ -248,7 +248,7 @@ func (ct *CompositeTimeline) loadMore(count int, getOlder bool) (int, error) {
 		if getOlder {
 			tlLastKey = ct.getLastKeyForAddress(k)
 		}
-		items, err := tl.GetFrom(context.Background(), emptyString, mainBranch, emptyString, tlLastKey, totalToRetrieve)
+		items, err := tl.GetFrom(context.Background(), emptyString, emptyString, tlLastKey, totalToRetrieve)
 		if err != nil {
 			return total, err
 		}
